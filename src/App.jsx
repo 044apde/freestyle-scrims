@@ -145,14 +145,6 @@ export default function App() {
     setActiveTab('main');
   };
 
-  const resetPin = async (userName) => {
-    const targetUser = users.find(u => u.name === userName);
-    if(targetUser) {
-      await setDoc(doc(db, 'users', userName), { ...targetUser, pin: '0000' });
-      alert(`${userName}의 비밀번호가 '0000'으로 초기화되었다.`);
-    }
-  };
-
   const createRoom = async () => {
     const roomId = Date.now();
     const newRoom = {
@@ -493,7 +485,7 @@ export default function App() {
 
         {activeTab === 'history' && <HistoryPage rooms={rooms} />}
 
-        {activeTab === 'ranking' && <RankingPage users={users} currentUser={currentUser} resetPin={resetPin} />}
+        {activeTab === 'ranking' && <RankingPage users={users} />}
 
         {activeTab === 'accounts' && currentUser.isAdmin && <AccountManagementPage users={users} updateMember={updateMember} />}
       </main>
