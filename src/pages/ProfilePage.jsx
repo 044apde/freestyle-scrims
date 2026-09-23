@@ -1,4 +1,5 @@
 import { Check, Edit2, History } from 'lucide-react';
+import PositionBadge from '../components/PositionBadge';
 
 const POSITIONS = ['C', 'PF', 'CT', 'SF', 'SG', 'PG', 'SW', 'DG'];
 
@@ -57,8 +58,8 @@ export default function ProfilePage({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="bg-gray-700 p-4 rounded-lg text-center"><div className="text-sm text-gray-400">주 포지션</div><div className="text-2xl font-bold text-indigo-400">{myInfo.mainPosition || '-'}</div></div>
-              <div className="bg-gray-700 p-4 rounded-lg text-center"><div className="text-sm text-gray-400">부 포지션</div><div className="text-2xl font-bold text-blue-400">{myInfo.subPosition || '-'}</div></div>
+              <div className="bg-gray-700 p-4 rounded-lg text-center"><div className="text-sm text-gray-400 mb-2">주 포지션</div><PositionBadge position={myInfo.mainPosition} /></div>
+              <div className="bg-gray-700 p-4 rounded-lg text-center"><div className="text-sm text-gray-400 mb-2">부 포지션</div><PositionBadge position={myInfo.subPosition} /></div>
             </div>
           )}
           <div className="mt-8">

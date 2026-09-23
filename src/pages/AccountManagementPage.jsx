@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import PositionBadge from '../components/PositionBadge';
 
 const POSITIONS = ['C', 'PF', 'CT', 'SF', 'SG', 'PG', 'SW', 'DG'];
 
-export default function AccountManagementPage({ users, updateMember }) {
+export default function AccountManagementPage({ users, updateMember, deleteMember }) {
   const members = users.filter(user => user.name !== 'root');
   const [editingName, setEditingName] = useState(null);
   const [form, setForm] = useState(null);
@@ -67,7 +68,7 @@ export default function AccountManagementPage({ users, updateMember }) {
               </tr>
             ) : (
               <tr key={member.name} className="hover:bg-gray-750">
-                <td className="p-4 font-bold">{member.name}</td><td className="p-4">{member.pin}</td><td className="p-4 text-indigo-300">{member.mainPosition || '-'}</td><td className="p-4 text-indigo-300">{member.subPosition || '-'}</td><td className="p-4">{member.wins || 0}</td><td className="p-4">{member.losses || 0}</td><td className="p-4 text-yellow-400 font-bold">{member.points || 0}점</td><td className="p-4 text-right"><button onClick={() => startEditing(member)} className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">수정</button></td>
+                <td className="p-4 font-bold">{member.name}</td><td className="p-4">{member.pin}</td><td className="p-4"><PositionBadge position={member.mainPosition} /></td><td className="p-4"><PositionBadge position={member.subPosition} /></td><td className="p-4">{member.wins || 0}</td><td className="p-4">{member.losses || 0}</td><td className="p-4 text-yellow-400 font-bold">{member.points || 0}점</td><td className="p-4 text-right"><div className="flex justify-end gap-2"><button onClick={() => startEditing(member)} className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">수정</button><button onClick={() => deleteMember(member.name)} className="bg-red-700 hover:bg-red-600 px-3 py-1 rounded">삭제</button></div></td>
               </tr>
             ))}
           </tbody>

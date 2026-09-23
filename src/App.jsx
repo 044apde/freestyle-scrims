@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
-import { collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, deleteDoc, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase'; // firebase.js에서 db를 불러옴
 import AuthPage from './components/AuthPage';
 import Navigation from './components/Navigation';
@@ -324,6 +324,19 @@ export default function App() {
     }
   };
 
+  const deleteMember = async (userName) => {
+    if (!currentUser?.isAdmin || userName === ADMIN_ACCOUNT.name) return;
+    if (!window.confirm(`${userName} 계정을 삭제하시겠습니까?`)) return;
+
+    try {
+      await deleteDoc(doc(db, 'users', userName));
+      setUsers(prevUsers => prevUsers.filter(user => user.name !== userName));
+    } catch (error) {
+      console.error('멤버 계정 삭제 실패:', error);
+      alert('멤버 계정 삭제에 실패했습니다. 잠시 후 다시 시도하세요.');
+    }
+  };
+
   if (!currentUser) {
     return <AuthPage
       authMode={authMode}
@@ -497,7 +510,7 @@ export default function App() {
 
         {activeTab === 'ranking' && <RankingPage users={users} />}
 
-        {activeTab === 'accounts' && currentUser.isAdmin && <AccountManagementPage users={users} updateMember={updateMember} />}
+        {activeTab === 'accounts' && currentUser.isAdmin && <AccountManagementPage users={users} updateMember={updateMember} deleteMember={deleteMember} />}
       </main>
     </div>
   );
