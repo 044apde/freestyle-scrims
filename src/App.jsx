@@ -2,15 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Trophy, History, Users, LogOut, User, Edit2, Check, LayoutDashboard } from 'lucide-react';
 
 const POSITIONS = ['C', 'PF', 'SF', 'SG', 'PG'];
+const INVITATION_CODE = '다시만난세계';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [activeTab, setActiveTab] = useState('main');
+  const [authMode, setAuthMode] = useState('login');
 
   const [loginName, setLoginName] = useState('');
   const [loginPin, setLoginPin] = useState('');
+  const [signupName, setSignupName] = useState('');
+  const [signupPin, setSignupPin] = useState('');
+  const [signupPinConfirm, setSignupPinConfirm] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
   const [regMainPos, setRegMainPos] = useState('C');
   const [regSubPos, setRegSubPos] = useState('PF');
 
@@ -48,27 +54,49 @@ export default function App() {
     if (!loginName || !loginPin) return alert('닉네임과 비밀번호를 입력하세요.');
 
     const existingUser = users.find(u => u.name === loginName);
-    if (existingUser) {
-      if (existingUser.pin === loginPin || existingUser.pin === '0000') {
-        setCurrentUser(existingUser);
-        setLoginPin('');
-      } else {
-        alert('비밀번호가 틀렸습니다.');
-      }
-    } else {
-      const newUser = {
-        name: loginName,
-        pin: loginPin,
-        mainPosition: regMainPos,
-        subPosition: regSubPos,
-        wins: 0,
-        losses: 0,
-        points: 0
-      };
-      setUsers([...users, newUser]);
-      setCurrentUser(newUser);
-      setLoginPin('');
+    if (!existingUser) {
+      alert('가입된 계정을 찾을 수 없습니다. 먼저 회원가입을 진행하세요.');
+      return;
     }
+
+    if (existingUser.pin === loginPin || existingUser.pin === '0000') {
+      setCurrentUser(existingUser);
+      setLoginPin('');
+    } else {
+      alert('비밀번호가 틀렸습니다.');
+    }
+  };
+
+  const handleSignup = (e) => {
+    e.preventDefault();
+    if (!signupName || !signupPin || !signupPinConfirm || !invitationCode) {
+      return alert('회원가입 정보를 모두 입력하세요.');
+    }
+    if (invitationCode !== INVITATION_CODE) {
+      return alert('회원가입 코드가 올바르지 않습니다.');
+    }
+    if (signupPin !== signupPinConfirm) {
+      return alert('비밀번호가 일치하지 않습니다.');
+    }
+    if (users.some(user => user.name === signupName)) {
+      return alert('이미 사용 중인 닉네임입니다.');
+    }
+
+    const newUser = {
+      name: signupName,
+      pin: signupPin,
+      mainPosition: regMainPos,
+      subPosition: regSubPos,
+      wins: 0,
+      losses: 0,
+      points: 0
+    };
+    setUsers([...users, newUser]);
+    setCurrentUser(newUser);
+    setSignupName('');
+    setSignupPin('');
+    setSignupPinConfirm('');
+    setInvitationCode('');
   };
 
   const handleLogout = () => {
@@ -245,57 +273,121 @@ export default function App() {
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
           <h1 className="text-3xl font-bold text-white text-center mb-8">프리스타일 리부트 내전</h1>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-gray-400 mb-2">닉네임</label>
-              <input
-                type="text"
-                value={loginName}
-                onChange={(e) => setLoginName(e.target.value)}
-                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="닉네임을 입력하세요."
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-gray-400 mb-2">비밀번호 (PIN)</label>
-              <input
-                type="password"
-                value={loginPin}
-                onChange={(e) => setLoginPin(e.target.value)}
-                maxLength={4}
-                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="4자리 숫자"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4 pb-4">
+          {authMode === 'login' ? (
+            <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-gray-400 mb-2">주 포지션 (신규)</label>
-                <select
-                  value={regMainPos}
-                  onChange={(e) => setRegMainPos(e.target.value)}
+                <label className="block text-gray-400 mb-2">닉네임</label>
+                <input
+                  type="text"
+                  value={loginName}
+                  onChange={(e) => setLoginName(e.target.value)}
                   className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
-                </select>
+                  placeholder="닉네임을 입력하세요."
+                  required
+                />
               </div>
               <div>
-                <label className="block text-gray-400 mb-2">부 포지션 (신규)</label>
-                <select
-                  value={regSubPos}
-                  onChange={(e) => setRegSubPos(e.target.value)}
+                <label className="block text-gray-400 mb-2">비밀번호 (PIN)</label>
+                <input
+                  type="password"
+                  value={loginPin}
+                  onChange={(e) => setLoginPin(e.target.value)}
+                  maxLength={4}
                   className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
-                </select>
+                  placeholder="4자리 숫자"
+                  required
+                />
               </div>
-            </div>
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-              입장하기
-            </button>
-            <p className="text-gray-500 text-sm text-center mt-4">최초 입장 시 입력한 비밀번호로 계정이 등록됩니다.</p>
-          </form>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                로그인
+              </button>
+              <div className="border-t border-gray-700 pt-4 text-center">
+                <p className="text-gray-400 text-sm mb-2">계정이 없으신가요?</p>
+                <button type="button" onClick={() => setAuthMode('signup')} className="text-indigo-400 hover:text-indigo-300 font-bold">
+                  회원가입
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSignup} className="space-y-4">
+              <div>
+                <label className="block text-gray-400 mb-2">닉네임</label>
+                <input
+                  type="text"
+                  value={signupName}
+                  onChange={(e) => setSignupName(e.target.value)}
+                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="닉네임을 입력하세요."
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 mb-2">비밀번호 (PIN)</label>
+                <input
+                  type="password"
+                  value={signupPin}
+                  onChange={(e) => setSignupPin(e.target.value)}
+                  maxLength={4}
+                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="4자리 숫자"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 mb-2">비밀번호 확인</label>
+                <input
+                  type="password"
+                  value={signupPinConfirm}
+                  onChange={(e) => setSignupPinConfirm(e.target.value)}
+                  maxLength={4}
+                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="비밀번호를 다시 입력하세요."
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 mb-2">회원가입 코드</label>
+                <input
+                  type="text"
+                  value={invitationCode}
+                  onChange={(e) => setInvitationCode(e.target.value)}
+                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="회원가입 코드를 입력하세요."
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 mb-2">주 포지션</label>
+                  <select
+                    value={regMainPos}
+                    onChange={(e) => setRegMainPos(e.target.value)}
+                    className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-2">부 포지션</label>
+                  <select
+                    value={regSubPos}
+                    onChange={(e) => setRegSubPos(e.target.value)}
+                    className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                회원가입
+              </button>
+              <div className="border-t border-gray-700 pt-4 text-center">
+                <button type="button" onClick={() => setAuthMode('login')} className="text-indigo-400 hover:text-indigo-300 font-bold">
+                  로그인으로 돌아가기
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     );
