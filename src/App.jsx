@@ -170,6 +170,19 @@ export default function App() {
     await setDoc(doc(db, 'rooms', roomId.toString()), newRoom);
   };
 
+  const deleteRoom = async (room) => {
+    const canDelete = currentUser.name === 'root' || room.host === currentUser.name;
+    if (!canDelete) return;
+    if (!window.confirm(`${room.name}을(를) 강제로 삭제하시겠습니까?`)) return;
+
+    try {
+      await deleteDoc(doc(db, 'rooms', room.id.toString()));
+    } catch (error) {
+      console.error('내전 삭제 실패:', error);
+      alert(`내전 삭제에 실패했습니다. Firebase 규칙을 확인하세요. (${error.code || 'unknown-error'})`);
+    }
+  };
+
   const joinRoom = async (roomId) => {
     const room = rooms.find(r => r.id === roomId);
     if (room && !room.participants.includes(currentUser.name)) {
@@ -181,6 +194,11 @@ export default function App() {
   };
 
   const addTestBots = async (roomId) => {
+    if (!currentUser?.isAdmin) {
+      alert('테스트봇 생성은 관리자만 사용할 수 있습니다.');
+      return;
+    }
+
     const bots = Array.from({ length: 8 }, (_, i) => ({
       name: `테스트봇${i + 1}`,
       pin: '0000',
@@ -192,26 +210,40 @@ export default function App() {
     }));
 
     const botNames = [];
-    for (const bot of bots) {
-      if (!users.some(u => u.name === bot.name)) {
-        await setDoc(doc(db, 'users', bot.name), bot);
+    try {
+      for (const bot of bots) {
+        if (!users.some(u => u.name === bot.name)) {
+          await setDoc(doc(db, 'users', bot.name), bot);
+        }
+        botNames.push(bot.name);
       }
-      botNames.push(bot.name);
-    }
 
-    const room = rooms.find(r => r.id === roomId);
-    if (room) {
-      const uniqueParticipants = Array.from(new Set([...room.participants, ...botNames]));
-      await setDoc(doc(db, 'rooms', roomId.toString()), {
-        ...room,
-        participants: uniqueParticipants
-      });
+      const room = rooms.find(r => r.id === roomId);
+      if (room) {
+        const uniqueParticipants = Array.from(new Set([...room.participants, ...botNames]));
+        await setDoc(doc(db, 'rooms', roomId.toString()), {
+          ...room,
+          participants: uniqueParticipants
+        });
+      }
+    } catch (error) {
+      console.error('테스트봇 생성 실패:', error);
+      alert(`테스트봇 생성에 실패했습니다. Firebase 규칙을 확인하세요. (${error.code || 'unknown-error'})`);
     }
   };
 
   const generateTeams = async (roomId) => {
     const room = rooms.find(r => r.id === roomId);
-    if (room) {
+    if (!room || room.participants.length < 2) {
+      alert('팀을 생성하려면 참가자가 2명 이상 필요합니다.');
+      return;
+    }
+    if (room.host !== currentUser.name && !currentUser.isAdmin) {
+      alert('모집 마감과 팀 생성은 방장 또는 관리자만 할 수 있습니다.');
+      return;
+    }
+
+    try {
       const shuffled = [...room.participants].sort(() => 0.5 - Math.random());
       const teamA = shuffled.slice(0, Math.ceil(shuffled.length / 2));
       const teamB = shuffled.slice(Math.ceil(shuffled.length / 2));
@@ -220,6 +252,9 @@ export default function App() {
         status: 'teams_ready',
         teams: [teamA, teamB]
       });
+    } catch (error) {
+      console.error('팀 생성 실패:', error);
+      alert(`팀 생성에 실패했습니다. Firebase 규칙을 확인하세요. (${error.code || 'unknown-error'})`);
     }
   };
 
@@ -402,7 +437,12 @@ export default function App() {
                         <p className="text-sm text-gray-400">방장: {room.host}</p>
                       </div>
                       <div className="flex space-x-2">
-                        {room.host === currentUser.name && room.status === 'recruiting' && (
+                        {(currentUser.name === 'root' || room.host === currentUser.name) && (
+                          <button onClick={() => deleteRoom(room)} className="bg-red-700 hover:bg-red-600 px-3 py-1 rounded text-sm transition-colors">
+                            내전 삭제
+                          </button>
+                        )}
+                        {currentUser.isAdmin && room.status === 'recruiting' && (
                           <button onClick={() => addTestBots(room.id)} className="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm transition-colors">
                             + 테스트봇 8명
                           </button>
@@ -433,7 +473,7 @@ export default function App() {
                               참가 신청 완료
                             </div>
                           )}
-                          {room.host === currentUser.name && room.participants.length >= 2 && (
+                          {(room.host === currentUser.name || currentUser.isAdmin) && room.participants.length >= 2 && (
                             <button onClick={() => generateTeams(room.id)} className="w-full bg-yellow-600 hover:bg-yellow-700 py-3 rounded-lg font-bold transition-colors">
                               모집 마감 및 팀 생성
                             </button>
