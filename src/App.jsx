@@ -52,14 +52,22 @@ export default function App() {
       const usersData = snapshot.docs.map(doc => doc.data());
       const adminExists = usersData.some(user => user.name === ADMIN_ACCOUNT.name);
       if (!adminExists) {
-        setDoc(doc(db, 'users', ADMIN_ACCOUNT.name), ADMIN_ACCOUNT);
+        setDoc(doc(db, 'users', ADMIN_ACCOUNT.name), ADMIN_ACCOUNT).catch((error) => {
+          console.error('관리자 계정 생성 실패:', error);
+        });
       }
       setUsers(adminExists ? usersData : [ADMIN_ACCOUNT, ...usersData]);
+    }, (error) => {
+      console.error('사용자 데이터 조회 실패:', error);
+      alert(`사용자 데이터를 불러오지 못했습니다. Firebase 규칙을 확인하세요. (${error.code})`);
     });
 
     const unsubRooms = onSnapshot(collection(db, 'rooms'), (snapshot) => {
       const roomsData = snapshot.docs.map(doc => doc.data()).sort((a, b) => b.id - a.id);
       setRooms(roomsData);
+    }, (error) => {
+      console.error('내전 데이터 조회 실패:', error);
+      alert(`내전 데이터를 불러오지 못했습니다. Firebase 규칙을 확인하세요. (${error.code})`);
     });
 
     return () => {
@@ -97,21 +105,23 @@ export default function App() {
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    if (!signupName || !signupPin || !signupPinConfirm || !invitationCode) {
+    const normalizedSignupName = signupName.trim();
+    const normalizedInvitationCode = invitationCode.trim();
+    if (!normalizedSignupName || !signupPin || !signupPinConfirm || !normalizedInvitationCode) {
       return alert('회원가입 정보를 모두 입력하세요.');
     }
-    if (invitationCode !== INVITATION_CODE) {
+    if (normalizedInvitationCode !== INVITATION_CODE) {
       return alert('계정 생성 코드가 올바르지 않습니다.');
     }
     if (signupPin !== signupPinConfirm) {
       return alert('비밀번호가 일치하지 않습니다.');
     }
-    if (users.some(user => user.name === signupName)) {
+    if (users.some(user => user.name === normalizedSignupName)) {
       return alert('이미 사용 중인 닉네임입니다.');
     }
 
     const newUser = {
-      name: signupName,
+      name: normalizedSignupName,
       pin: signupPin,
       mainPosition: regMainPos,
       subPosition: regSubPos,
@@ -125,16 +135,16 @@ export default function App() {
     setCurrentUser(newUser);
 
     try {
-      await setDoc(doc(db, 'users', signupName), newUser);
+      await setDoc(doc(db, 'users', normalizedSignupName), newUser);
       setSignupName('');
       setSignupPin('');
       setSignupPinConfirm('');
       setInvitationCode('');
     } catch (error) {
       setCurrentUser(null);
-      setUsers(prevUsers => prevUsers.filter(user => user.name !== signupName));
+      setUsers(prevUsers => prevUsers.filter(user => user.name !== normalizedSignupName));
       console.error('회원가입 저장 실패:', error);
-      alert('회원가입에 실패했습니다. 잠시 후 다시 시도하세요.');
+      alert(`회원가입에 실패했습니다. Firebase 규칙을 확인하세요. (${error.code || 'unknown-error'})`);
     } finally {
       setIsSigningUp(false);
     }
