@@ -133,13 +133,6 @@ export default function App() {
     setActiveTab('main');
   };
 
-  const resetPin = (userName) => {
-    if (!currentUser?.isAdmin) return;
-    const updatedUsers = users.map(u => u.name === userName ? { ...u, pin: '0000' } : u);
-    setUsers(updatedUsers);
-    alert(`${userName}의 비밀번호가 '0000'으로 초기화되었습니다.`);
-  };
-
   const openAccountForm = (user = null) => {
     setIsAccountFormOpen(true);
     if (user) {
@@ -983,7 +976,6 @@ export default function App() {
                     <th className="p-4">주/부 포지션</th>
                     <th className="p-4">승점</th>
                     <th className="p-4">전적</th>
-                    <th className="p-4 text-right">관리</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
@@ -994,13 +986,6 @@ export default function App() {
                       <td className="p-4 text-sm text-indigo-300">{user.mainPosition || '-'}/{user.subPosition || '-'}</td>
                       <td className="p-4 text-yellow-400 font-bold">{user.points}점</td>
                       <td className="p-4 text-gray-400">{user.wins}승 {user.losses}패</td>
-                      <td className="p-4 text-right">
-                        {currentUser.isAdmin && user.name !== currentUser.name && (
-                          <button onClick={() => resetPin(user.name)} className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
-                            초기화
-                          </button>
-                        )}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
