@@ -15,6 +15,7 @@ export default function AuthPage({
   setSignupPinConfirm,
   invitationCode,
   setInvitationCode,
+  isSigningUp,
   regMainPos,
   setRegMainPos,
   regSubPos,
@@ -73,7 +74,9 @@ export default function AuthPage({
                 <select value={regSubPos} onChange={(e) => setRegSubPos(e.target.value)} className={inputClass}>{POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}</select>
               </div>
             </div>
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">회원가입</button>
+            <button type="submit" disabled={isSigningUp} className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-60 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+              {isSigningUp ? '가입 처리 중...' : '회원가입'}
+            </button>
             <div className="border-t border-gray-700 pt-4 text-center">
               <button type="button" onClick={() => setAuthMode('login')} className="text-indigo-400 hover:text-indigo-300 font-bold">로그인으로 돌아가기</button>
             </div>

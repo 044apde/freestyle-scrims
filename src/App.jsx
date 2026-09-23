@@ -26,6 +26,7 @@ export default function App() {
   const [invitationCode, setInvitationCode] = useState('');
   const [regMainPos, setRegMainPos] = useState('C');
   const [regSubPos, setRegSubPos] = useState('PF');
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editMainPos, setEditMainPos] = useState('');
@@ -101,17 +102,24 @@ export default function App() {
       losses: 0,
       points: 0
     };
+
+    setIsSigningUp(true);
+    setUsers(prevUsers => [...prevUsers, newUser]);
+    setCurrentUser(newUser);
+
     try {
       await setDoc(doc(db, 'users', signupName), newUser);
-      setUsers(prevUsers => [...prevUsers, newUser]);
-      setCurrentUser(newUser);
       setSignupName('');
       setSignupPin('');
       setSignupPinConfirm('');
       setInvitationCode('');
     } catch (error) {
+      setCurrentUser(null);
+      setUsers(prevUsers => prevUsers.filter(user => user.name !== signupName));
       console.error('회원가입 저장 실패:', error);
       alert('회원가입에 실패했습니다. 잠시 후 다시 시도하세요.');
+    } finally {
+      setIsSigningUp(false);
     }
   };
 
@@ -300,6 +308,7 @@ export default function App() {
       setSignupPinConfirm={setSignupPinConfirm}
       invitationCode={invitationCode}
       setInvitationCode={setInvitationCode}
+      isSigningUp={isSigningUp}
       regMainPos={regMainPos}
       setRegMainPos={setRegMainPos}
       regSubPos={regSubPos}
