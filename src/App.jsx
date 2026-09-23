@@ -656,7 +656,10 @@ export default function App() {
                     <span>관리자 권한</span>
                   </label>
                 </div>
-                <button type="submit" className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-bold">저장</button>
+                <div className="flex space-x-3">
+                  <button type="submit" className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-bold">저장</button>
+                  <button type="button" onClick={closeAccountForm} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg font-bold">뒤로가기</button>
+                </div>
               </form>
             )}
 
