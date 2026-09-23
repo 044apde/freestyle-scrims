@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, History, Users, LogOut, User, Edit2, Check, LayoutDashboard } from 'lucide-react';
 
-const POSITIONS = ['C', 'PF', 'CT', 'SF', 'SG', 'PG', 'SW', 'DG'];
+const POSITIONS = ['C', 'PF', 'SF', 'SG', 'PG'];
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
