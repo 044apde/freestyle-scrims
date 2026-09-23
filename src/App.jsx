@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Trophy, History, Users, LogOut, User, Edit2, Check, LayoutDashboard, UserPlus, Trash2 } from 'lucide-react';
 
 const POSITIONS = ['C', 'PF', 'SF', 'SG', 'PG'];
@@ -134,6 +134,9 @@ export default function App() {
   };
 
   const openAccountForm = (user = null) => {
+    if (!isAccountFormOpen) {
+      window.history.pushState({ accountForm: true }, '', window.location.href);
+    }
     setIsAccountFormOpen(true);
     if (user) {
       setEditingAccountName(user.name);
@@ -162,7 +165,11 @@ export default function App() {
     }
   };
 
-  const closeAccountForm = () => {
+  const closeAccountForm = useCallback(({ fromHistory = false } = {}) => {
+    if (!fromHistory && isAccountFormOpen && window.history.state?.accountForm) {
+      window.history.back();
+      return;
+    }
     setIsAccountFormOpen(false);
     setEditingAccountName(null);
     setAccountForm({
@@ -175,7 +182,18 @@ export default function App() {
       points: 0,
       isAdmin: false
     });
-  };
+  }, [isAccountFormOpen]);
+
+  useEffect(() => {
+    const handleBrowserBack = () => {
+      if (isAccountFormOpen) {
+        closeAccountForm({ fromHistory: true });
+      }
+    };
+
+    window.addEventListener('popstate', handleBrowserBack);
+    return () => window.removeEventListener('popstate', handleBrowserBack);
+  }, [isAccountFormOpen, closeAccountForm]);
 
   const handleAccountFormChange = (field, value) => {
     setAccountForm(prev => ({ ...prev, [field]: value }));
@@ -604,7 +622,7 @@ export default function App() {
               <form onSubmit={saveAccount} className="bg-gray-800 p-6 rounded-xl border border-gray-700 space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-bold">{editingAccountName ? '계정 정보 수정' : '새 계정 추가'}</h3>
-                  <button type="button" onClick={closeAccountForm} className="text-gray-400 hover:text-white">닫기</button>
+                  <button type="button" onClick={closeAccountForm} className="text-gray-400 hover:text-white">취소</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
@@ -658,7 +676,7 @@ export default function App() {
                 </div>
                 <div className="flex space-x-3">
                   <button type="submit" className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-bold">저장</button>
-                  <button type="button" onClick={closeAccountForm} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg font-bold">뒤로가기</button>
+                  <button type="button" onClick={closeAccountForm} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg font-bold">취소</button>
                 </div>
               </form>
             )}
