@@ -434,7 +434,7 @@ export default function App() {
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
           <img src={positionBanner} alt="프리스타일 포지션 배너" className="w-full rounded-lg object-cover mb-6" />
-          <h1 className="text-3xl font-bold text-white text-center mb-8">프리스타일 리부트 내전</h1>
+          <h1 className="text-3xl font-bold text-white text-center mb-8">클럽 라운지</h1>
           {authMode === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
