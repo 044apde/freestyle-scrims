@@ -286,6 +286,12 @@ export default function App() {
   };
 
   const joinRoom = (roomId) => {
+    const joinedRoom = rooms.find(room => room.participants.includes(currentUser.name));
+    if (joinedRoom) {
+      alert(`이미 ${joinedRoom.name}에 참가 중입니다. 한 번에 하나의 내전만 참가할 수 있습니다.`);
+      return;
+    }
+
     setRooms(rooms.map(room => {
       if (room.id === roomId && !room.participants.includes(currentUser.name)) {
         return { ...room, participants: [...room.participants, currentUser.name] };
@@ -428,6 +434,13 @@ export default function App() {
     setCurrentUser({ ...currentUser, mainPosition: editMainPos, subPosition: editSubPos });
     setIsEditingProfile(false);
   };
+
+  const joinedRooms = currentUser
+    ? rooms.filter(room => room.participants.includes(currentUser.name))
+    : [];
+  const otherRooms = currentUser
+    ? rooms.filter(room => !room.participants.includes(currentUser.name))
+    : rooms;
 
   if (!currentUser) {
     return (
@@ -847,7 +860,23 @@ export default function App() {
               {rooms.length === 0 ? (
                 <div className="text-center py-20 text-gray-500 bg-gray-800 rounded-xl border border-gray-700">진행 중인 내전이 없습니다.</div>
               ) : (
-                rooms.map(room => (
+                <div className="space-y-8">
+                  {[
+                    { title: '참가 중인 내전', rooms: joinedRooms, emptyText: '참가 중인 내전이 없습니다.', accent: true },
+                    { title: '다른 내전', rooms: otherRooms, emptyText: '참가할 수 있는 다른 내전이 없습니다.', accent: false }
+                  ].map(section => (
+                    <section key={section.title} className={`space-y-4 rounded-xl border-l-4 p-4 ${section.accent ? 'border-orange-500 bg-gray-800 shadow-lg' : 'border-gray-600 bg-gray-900'}`}>
+                      <div className="flex items-center justify-between border-b border-gray-700 pb-3">
+                        <h3 className={`text-xl font-bold ${section.accent ? 'text-orange-400' : 'text-gray-100'}`}>{section.title}</h3>
+                        <span className={`rounded-full px-3 py-1 text-sm font-bold ${section.accent ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-300'}`}>
+                          {section.rooms.length}개
+                        </span>
+                      </div>
+                      {section.rooms.length === 0 ? (
+                        <div className="text-center py-10 text-gray-500 bg-gray-800 rounded-xl border border-gray-700">{section.emptyText}</div>
+                      ) : (
+                        <div className="grid gap-6">
+                {section.rooms.map(room => (
                   <div key={room.id} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
                     <div className="bg-gray-750 p-4 border-b border-gray-700 flex justify-between items-center">
                       <div>
@@ -878,8 +907,12 @@ export default function App() {
                             </div>
                           </div>
                           {!room.participants.includes(currentUser.name) ? (
-                            <button onClick={() => joinRoom(room.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold transition-colors">
-                              참가 신청하기
+                            <button
+                              onClick={() => joinRoom(room.id)}
+                              disabled={joinedRooms.length > 0}
+                              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 py-3 rounded-lg font-bold transition-colors"
+                            >
+                              {joinedRooms.length > 0 ? '다른 내전 참가 불가' : '참가 신청하기'}
                             </button>
                           ) : (
                             <div className="w-full bg-green-900/30 text-green-400 py-3 rounded-lg text-center font-bold border border-green-800">
@@ -953,7 +986,12 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                ))
+                ))}
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                </div>
               )}
             </div>
           </div>
