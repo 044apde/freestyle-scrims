@@ -8,6 +8,7 @@ import ProfilePage from './pages/ProfilePage';
 import HistoryPage from './pages/HistoryPage';
 import RankingPage from './pages/RankingPage';
 import AccountManagementPage from './pages/AccountManagementPage';
+import PositionBadge from './components/PositionBadge';
 
 const POSITIONS = ['C', 'PF', 'CT', 'SF', 'SG', 'PG', 'SW', 'DG'];
 const INVITATION_CODE = '스포스프';
@@ -163,7 +164,7 @@ export default function App() {
       host: currentUser.name,
       status: 'recruiting',
       participants: [],
-      teams: [],
+      teams: {},
       matches: [],
       createdAt: new Date().toISOString()
     };
@@ -250,7 +251,7 @@ export default function App() {
       await setDoc(doc(db, 'rooms', roomId.toString()), {
         ...room,
         status: 'teams_ready',
-        teams: [teamA, teamB]
+        teams: { a: teamA, b: teamB }
       });
     } catch (error) {
       console.error('팀 생성 실패:', error);
@@ -263,12 +264,12 @@ export default function App() {
     if (room) {
       const t = room.teams;
       const matches = [];
-      if (t.length >= 2) {
+      if (t.a && t.b) {
         matches.push({
           id: 1,
           round: '결승',
-          teamA: t[0],
-          teamB: t[1],
+          teamA: t.a,
+          teamB: t.b,
           winner: null,
           status: 'pending'
         });
@@ -434,7 +435,10 @@ export default function App() {
                     <div className="bg-gray-750 p-4 border-b border-gray-700 flex justify-between items-center">
                       <div>
                         <h3 className="text-xl font-bold">{room.name}</h3>
-                        <p className="text-sm text-gray-400">방장: {room.host}</p>
+                        <p className="mt-2 inline-flex items-center gap-2 rounded-lg border border-orange-400/60 bg-orange-500/15 px-3 py-1.5 text-sm font-bold text-orange-300">
+                          <span className="text-orange-200">방장</span>
+                          <span className="text-white">{room.host}</span>
+                        </p>
                       </div>
                       <div className="flex space-x-2">
                         {(currentUser.name === 'root' || room.host === currentUser.name) && (
@@ -459,9 +463,18 @@ export default function App() {
                           <div>
                             <h4 className="text-gray-400 mb-2 flex items-center"><Users size={16} className="mr-2" /> 참가자 ({room.participants.length}명)</h4>
                             <div className="flex flex-wrap gap-2">
-                              {room.participants.map(p => (
-                                <span key={p} className="bg-gray-700 px-3 py-1 rounded-lg text-sm">{p}</span>
-                              ))}
+                              {room.participants.map(p => {
+                                const participant = users.find(user => user.name === p);
+                                return (
+                                <span key={p} className="inline-flex items-center gap-2 rounded-lg bg-gray-700 px-3 py-2 text-sm">
+                                  <span className="font-bold">{p}</span>
+                                  <span className="flex items-center gap-1 text-xs text-gray-300">
+                                    <span>주</span><PositionBadge position={participant?.mainPosition} />
+                                    <span>부</span><PositionBadge position={participant?.subPosition} />
+                                  </span>
+                                </span>
+                                );
+                              })}
                             </div>
                           </div>
                           {!room.participants.includes(currentUser.name) ? (
@@ -487,13 +500,13 @@ export default function App() {
                             <div className="bg-gray-700 p-4 rounded-xl border-t-4 border-indigo-500">
                               <h4 className="font-bold mb-4 text-indigo-400">Team A</h4>
                               <div className="space-y-2">
-                                {room.teams[0].map(p => <div key={p}>{p}</div>)}
+                                {room.teams.a?.map(p => <div key={p}>{p}</div>)}
                               </div>
                             </div>
                             <div className="bg-gray-700 p-4 rounded-xl border-t-4 border-pink-500">
                               <h4 className="font-bold mb-4 text-pink-400">Team B</h4>
                               <div className="space-y-2">
-                                {room.teams[1].map(p => <div key={p}>{p}</div>)}
+                                {room.teams.b?.map(p => <div key={p}>{p}</div>)}
                               </div>
                             </div>
                           </div>
