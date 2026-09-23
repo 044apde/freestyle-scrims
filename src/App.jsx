@@ -1,348 +1,300 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  History, 
-  ListOrdered, 
-  Undo2, 
-  Lock, 
-  Users, 
-  Trophy, 
-  Sword, 
-  UserPlus, 
-  LogOut,
-  Swords
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trophy, History, Users, LogOut, User, Edit2, Check, LayoutDashboard } from 'lucide-react';
 
-// 고유 ID 생성기
-const generateId = () => Math.random().toString(36).substring(2, 9);
-
-// 토너먼트 대진표(Bracket) 자동 생성 및 승급 처리 로직
-const propagateTournament = (matches) => {
-  let updated = matches.map(m => ({ ...m }));
-  
-  // 라운드 2 이상의 진출팀 슬롯을 초기화한 후 아래에서부터 다시 채워 올립니다 (완벽한 롤백/재계산 지원)
-  updated.forEach(m => {
-    if (m.round > 1) {
-      m.team1Id = null;
-      m.team2Id = null;
-    }
-  });
-
-  let changed = true;
-  while (changed) {
-    changed = false;
-    updated.forEach(m => {
-      if (m.winnerId && m.nextMatchId) {
-        const nextMatch = updated.find(x => x.id === m.nextMatchId);
-        if (nextMatch) {
-          if (!nextMatch.team1Id && nextMatch.team2Id !== m.winnerId) {
-            nextMatch.team1Id = m.winnerId;
-            changed = true;
-          } else if (!nextMatch.team2Id && nextMatch.team1Id !== m.winnerId) {
-            nextMatch.team2Id = m.winnerId;
-            changed = true;
-          }
-        }
-      }
-    });
-  }
-  
-  // 승리 팀이 슬롯에서 사라진 경우 우승 기록도 취소 (롤백 처리용)
-  updated.forEach(m => {
-    if (m.winnerId && m.winnerId !== 'dummy' && m.winnerId !== m.team1Id && m.winnerId !== m.team2Id) {
-      if (!m.isBye) {
-        m.winnerId = null;
-        m.completedAt = null;
-      }
-    }
-  });
-
-  return updated;
-};
-
-const generateBracket = (teams) => {
-  if (teams.length < 2) return [];
-  const p = Math.pow(2, Math.ceil(Math.log2(teams.length)));
-  const rounds = Math.log2(p);
-  let matches = [];
-  let matchCounter = 1;
-
-  let currentRoundMatches = [];
-  const finalMatch = { id: `m_${Date.now()}_${matchCounter++}`, round: rounds, team1Id: null, team2Id: null, winnerId: null, nextMatchId: null, name: '결승전' };
-  matches.push(finalMatch);
-  currentRoundMatches.push(finalMatch);
-
-  // 트리 구조 생성 (결승 -> 4강 -> 8강 역순)
-  for (let r = rounds - 1; r >= 1; r--) {
-    let prevRoundMatches = [];
-    for (let nextMatch of currentRoundMatches) {
-      const m1 = { id: `m_${Date.now()}_${matchCounter++}`, round: r, team1Id: null, team2Id: null, winnerId: null, nextMatchId: nextMatch.id, name: `${Math.pow(2, rounds - r + 1)}강` };
-      const m2 = { id: `m_${Date.now()}_${matchCounter++}`, round: r, team1Id: null, team2Id: null, winnerId: null, nextMatchId: nextMatch.id, name: `${Math.pow(2, rounds - r + 1)}강` };
-      matches.push(m1, m2);
-      prevRoundMatches.push(m1, m2);
-    }
-    currentRoundMatches = prevRoundMatches;
-  }
-
-  // 1라운드(Leaf Nodes)에 팀 배정
-  let shuffled = [...teams].sort(() => Math.random() - 0.5);
-  let teamIdx = 0;
-  for (let leaf of currentRoundMatches) {
-    if (teamIdx < shuffled.length) leaf.team1Id = shuffled[teamIdx++].id;
-  }
-  for (let leaf of currentRoundMatches) {
-    if (teamIdx < shuffled.length) leaf.team2Id = shuffled[teamIdx++].id;
-  }
-
-  // 부전승(Bye) 자동 처리
-  matches.forEach(m => {
-    if (m.round === 1) {
-      if (m.team1Id && !m.team2Id) {
-        m.winnerId = m.team1Id;
-        m.isBye = true;
-      } else if (!m.team1Id && m.team2Id) {
-        m.winnerId = m.team2Id;
-        m.isBye = true;
-      }
-    }
-  });
-
-  return propagateTournament(matches).sort((a,b) => a.round - b.round);
-};
+const POSITIONS = ['C', 'PF', 'CT', 'SF', 'SG', 'PG', 'SW', 'DG'];
 
 export default function App() {
-  // LocalStorage를 활용한 데이터 영구 보존
-  const [players, setPlayers] = useState(() => JSON.parse(localStorage.getItem('fs_players')) || []);
-  const [tournaments, setTournaments] = useState(() => JSON.parse(localStorage.getItem('fs_tourneys')) || []);
-  const [activePlayerId, setActivePlayerId] = useState(() => localStorage.getItem('fs_active_id') || null);
-  
-  // 데이터 변경 시 LocalStorage 업데이트
-  useEffect(() => localStorage.setItem('fs_players', JSON.stringify(players)), [players]);
-  useEffect(() => localStorage.setItem('fs_tourneys', JSON.stringify(tournaments)), [tournaments]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [activeTab, setActiveTab] = useState('main');
+
+  const [loginName, setLoginName] = useState('');
+  const [loginPin, setLoginPin] = useState('');
+  const [regMainPos, setRegMainPos] = useState('C');
+  const [regSubPos, setRegSubPos] = useState('PF');
+
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editMainPos, setEditMainPos] = useState('');
+  const [editSubPos, setEditSubPos] = useState('');
+
   useEffect(() => {
-    if (activePlayerId) localStorage.setItem('fs_active_id', activePlayerId);
-    else localStorage.removeItem('fs_active_id');
-  }, [activePlayerId]);
+    const savedUsers = JSON.parse(localStorage.getItem('freestyle_users')) || [];
+    const savedRooms = JSON.parse(localStorage.getItem('freestyle_rooms')) || [];
+    const savedCurrentUser = JSON.parse(localStorage.getItem('freestyle_currentUser'));
+    setUsers(savedUsers);
+    setRooms(savedRooms);
+    if (savedCurrentUser) setCurrentUser(savedCurrentUser);
+  }, []);
 
-  // UI States
-  const [activeTab, setActiveTab] = useState('current');
-  const [nicknameInput, setNicknameInput] = useState('');
-  const [pinInput, setPinInput] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  useEffect(() => {
+    localStorage.setItem('freestyle_users', JSON.stringify(users));
+  }, [users]);
 
-  const currentUserProfile = players.find(p => p.id === activePlayerId);
-  const activeTournament = tournaments.find(t => t.status !== 'FINISHED') || tournaments[tournaments.length - 1];
-  const isHost = activeTournament?.hostId === activePlayerId;
+  useEffect(() => {
+    localStorage.setItem('freestyle_rooms', JSON.stringify(rooms));
+  }, [rooms]);
 
-  // 자동 계산되는 랭킹 보드 (개인별 누적 승/패/승점)
-  const leaderboard = useMemo(() => {
-    const stats = {};
-    players.forEach(p => {
-      stats[p.id] = { ...p, wins: 0, losses: 0, points: 0, matchesPlayed: 0 };
-    });
-
-    tournaments.forEach(t => {
-      if (!t.matches) return;
-      t.matches.forEach(m => {
-        if (!m.winnerId || m.isBye) return;
-        
-        const t1 = t.teams.find(team => team.id === m.team1Id);
-        const t2 = t.teams.find(team => team.id === m.team2Id);
-        if (!t1 || !t2) return;
-
-        const isT1Win = m.winnerId === t1.id;
-        
-        // 팀원별 점수 부여 (승리 +3점, 패배 +1점)
-        t1.players.forEach(pid => {
-          if (!stats[pid]) return;
-          stats[pid].matchesPlayed++;
-          if (isT1Win) { stats[pid].wins++; stats[pid].points += 3; }
-          else { stats[pid].losses++; stats[pid].points += 1; }
-        });
-
-        t2.players.forEach(pid => {
-          if (!stats[pid]) return;
-          stats[pid].matchesPlayed++;
-          if (!isT1Win) { stats[pid].wins++; stats[pid].points += 3; }
-          else { stats[pid].losses++; stats[pid].points += 1; }
-        });
-      });
-    });
-    return Object.values(stats).sort((a, b) => b.points - a.points || b.wins - a.wins);
-  }, [players, tournaments]);
-
-  // 역대 전체 매치 기록 추출
-  const pastMatches = useMemo(() => {
-    return tournaments
-      .flatMap(t => (t.matches || []).filter(m => m.winnerId && !m.isBye).map(m => ({ ...m, tourneyName: t.name, teams: t.teams })))
-      .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
-  }, [tournaments]);
-
-  const handleAuth = (e) => {
-    e.preventDefault();
-    if (!nicknameInput.trim() || pinInput.length !== 4) {
-      setErrorMsg("닉네임과 4자리 비밀번호를 정확히 입력해주세요.");
-      setTimeout(() => setErrorMsg(''), 3000);
-      return;
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('freestyle_currentUser', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('freestyle_currentUser');
     }
+  }, [currentUser]);
 
-    const existingPlayer = players.find(p => p.nickname === nicknameInput.trim());
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!loginName || !loginPin) return alert('닉네임과 비밀번호를 입력하라.');
 
-    if (existingPlayer) {
-      if (existingPlayer.pin === pinInput.trim()) setActivePlayerId(existingPlayer.id);
-      else {
-        setErrorMsg("비밀번호가 일치하지 않습니다.");
-        setTimeout(() => setErrorMsg(''), 3000);
+    const existingUser = users.find(u => u.name === loginName);
+    if (existingUser) {
+      if (existingUser.pin === loginPin || existingUser.pin === '0000') {
+        setCurrentUser(existingUser);
+        setLoginPin('');
+      } else {
+        alert('비밀번호가 틀렸다.');
       }
     } else {
-      const newId = generateId();
-      setPlayers([...players, { id: newId, nickname: nicknameInput.trim(), pin: pinInput.trim(), createdAt: Date.now() }]);
-      setActivePlayerId(newId);
+      const newUser = {
+        name: loginName,
+        pin: loginPin,
+        mainPosition: regMainPos,
+        subPosition: regSubPos,
+        wins: 0,
+        losses: 0,
+        points: 0
+      };
+      setUsers([...users, newUser]);
+      setCurrentUser(newUser);
+      setLoginPin('');
     }
   };
 
-  const handleCreateTournament = () => {
-    const newTourney = {
-      id: generateId(),
-      name: `${new Date().toLocaleDateString()} 정규 내전`,
-      hostId: activePlayerId,
-      status: 'RECRUITING',
-      participants: [{ id: activePlayerId, nickname: currentUserProfile.nickname }],
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setActiveTab('main');
+  };
+
+  const resetPin = (userName) => {
+    const updatedUsers = users.map(u => u.name === userName ? { ...u, pin: '0000' } : u);
+    setUsers(updatedUsers);
+    alert(`${userName}의 비밀번호가 '0000'으로 초기화되었다.`);
+  };
+
+  const createRoom = () => {
+    const newRoom = {
+      id: Date.now(),
+      name: `내전 #${rooms.length + 1}`,
+      host: currentUser.name,
+      status: 'recruiting',
+      participants: [],
       teams: [],
-      matches: []
+      matches: [],
+      createdAt: new Date().toISOString()
     };
-    setTournaments([...tournaments, newTourney]);
-    setActiveTab('current');
+    setRooms([newRoom, ...rooms]);
   };
 
-  const handleAddDummyPlayers = () => {
-    if (!activeTournament || !isHost) return;
-    const bots = Array.from({ length: 8 }, (_, i) => {
-      const id = generateId();
-      return { id, nickname: `테스트봇${i + 1}`, pin: '0000', createdAt: Date.now() };
-    });
-    
-    // DB(상태)에 봇 등록
-    setPlayers([...players, ...bots]);
-    
-    // 현재 내전에 봇 참가
-    const updatedTournaments = tournaments.map(t => {
-      if (t.id === activeTournament.id) {
-        const newParticipants = [...t.participants];
-        bots.forEach(b => newParticipants.push({ id: b.id, nickname: b.nickname }));
-        return { ...t, participants: newParticipants };
+  const joinRoom = (roomId) => {
+    setRooms(rooms.map(room => {
+      if (room.id === roomId && !room.participants.includes(currentUser.name)) {
+        return { ...room, participants: [...room.participants, currentUser.name] };
       }
-      return t;
-    });
-    setTournaments(updatedTournaments);
-  };
-
-  const handleGenerateTeamsAndBracket = (type) => {
-    if (!activeTournament || !isHost) return;
-    
-    // 팀 생성 (3명씩 랜덤 묶기)
-    const shuffled = [...activeTournament.participants].sort(() => Math.random() - 0.5);
-    const teams = [];
-    const teamSize = 3;
-    for (let i = 0; i < shuffled.length; i += teamSize) {
-      const chunk = shuffled.slice(i, i + teamSize);
-      teams.push({
-        id: `team_${generateId()}`,
-        name: `${i / teamSize + 1}팀`,
-        players: chunk.map(p => p.id)
-      });
-    }
-
-    let matches = [];
-    if (type === 'tournament') {
-      matches = generateBracket(teams);
-    } else if (type === 'league') {
-      for (let i = 0; i < teams.length; i++) {
-        for (let j = i + 1; j < teams.length; j++) {
-          matches.push({
-            id: `m_league_${generateId()}`,
-            round: 1,
-            team1Id: teams[i].id,
-            team2Id: teams[j].id,
-            winnerId: null,
-            name: '풀리그'
-          });
-        }
-      }
-    }
-
-    setTournaments(prev => prev.map(t => 
-      t.id === activeTournament.id ? { ...t, status: 'PLAYING', teams, matches } : t
-    ));
-    setActiveTab('bracket');
-  };
-
-  const handleSetMatchWinner = (matchId, winnerTeamId) => {
-    setTournaments(prev => prev.map(t => {
-      if (t.id !== activeTournament?.id) return t;
-      let newMatches = t.matches.map(m => 
-        m.id === matchId ? { ...m, winnerId: winnerTeamId, completedAt: winnerTeamId ? Date.now() : null } : m
-      );
-      
-      // 토너먼트인 경우 자동 승급/롤백 처리
-      if (newMatches.some(m => m.nextMatchId)) {
-        newMatches = propagateTournament(newMatches);
-      }
-      
-      return { ...t, matches: newMatches };
+      return room;
     }));
   };
 
-  const handleEndTournament = () => {
-    if (window.confirm('내전을 종료하시겠습니까? 종료된 내전 데이터는 전체 랭킹에 합산됩니다.')) {
-      setTournaments(prev => prev.map(t => t.id === activeTournament.id ? { ...t, status: 'FINISHED' } : t));
+  const addTestBots = (roomId) => {
+    const bots = Array.from({ length: 8 }, (_, i) => ({
+      name: `테스트봇${i + 1}`,
+      pin: '0000',
+      mainPosition: POSITIONS[Math.floor(Math.random() * POSITIONS.length)],
+      subPosition: POSITIONS[Math.floor(Math.random() * POSITIONS.length)],
+      wins: 0,
+      losses: 0,
+      points: 0
+    }));
+
+    const newUsers = [...users];
+    const botNames = [];
+    bots.forEach(bot => {
+      if (!newUsers.some(u => u.name === bot.name)) {
+        newUsers.push(bot);
+      }
+      botNames.push(bot.name);
+    });
+    setUsers(newUsers);
+
+    setRooms(rooms.map(room => {
+      if (room.id === roomId) {
+        const uniqueParticipants = Array.from(new Set([...room.participants, ...botNames]));
+        return { ...room, participants: uniqueParticipants };
+      }
+      return room;
+    }));
+  };
+
+  const generateTeams = (roomId) => {
+    setRooms(rooms.map(room => {
+      if (room.id === roomId) {
+        const shuffled = [...room.participants].sort(() => 0.5 - Math.random());
+        const teamA = shuffled.slice(0, Math.ceil(shuffled.length / 2));
+        const teamB = shuffled.slice(Math.ceil(shuffled.length / 2));
+        return { ...room, status: 'teams_ready', teams: [teamA, teamB] };
+      }
+      return room;
+    }));
+  };
+
+  const generateTournament = (roomId) => {
+    setRooms(rooms.map(room => {
+      if (room.id === roomId) {
+        const t = room.teams;
+        const matches = [];
+        let matchId = 1;
+
+        if (t.length >= 2) {
+          matches.push({
+            id: matchId++,
+            round: '결승',
+            teamA: t[0],
+            teamB: t[1],
+            winner: null,
+            status: 'pending'
+          });
+        }
+        return { ...room, status: 'playing', matches };
+      }
+      return room;
+    }));
+  };
+
+  const updateMatchResult = (roomId, matchId, winner) => {
+    setRooms(rooms.map(room => {
+      if (room.id === roomId) {
+        const updatedMatches = room.matches.map(match => {
+          if (match.id === matchId) {
+            return { ...match, winner, status: 'completed' };
+          }
+          return match;
+        });
+        return { ...room, matches: updatedMatches };
+      }
+      return room;
+    }));
+    recalculateRankings(roomId, matchId, winner, false);
+  };
+
+  const rollbackMatchResult = (roomId, matchId) => {
+    let revertedWinner = null;
+    setRooms(rooms.map(room => {
+      if (room.id === roomId) {
+        const updatedMatches = room.matches.map(match => {
+          if (match.id === matchId) {
+            revertedWinner = match.winner;
+            return { ...match, winner: null, status: 'pending' };
+          }
+          return match;
+        });
+        return { ...room, matches: updatedMatches };
+      }
+      return room;
+    }));
+    if (revertedWinner) {
+      recalculateRankings(roomId, matchId, revertedWinner, true);
     }
   };
 
-  const handleResetPin = (playerId) => {
-    if (!isHost) return;
-    setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, pin: '0000' } : p));
-    alert("해당 선수의 비밀번호가 '0000'으로 초기화되었습니다.");
+  const recalculateRankings = (roomId, matchId, winner, isRollback) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+    const match = room.matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    const winTeam = winner === 'teamA' ? match.teamA : match.teamB;
+    const loseTeam = winner === 'teamA' ? match.teamB : match.teamA;
+
+    setUsers(prevUsers => prevUsers.map(user => {
+      let u = { ...user };
+      if (winTeam.includes(u.name)) {
+        u.wins += isRollback ? -1 : 1;
+        u.points += isRollback ? -3 : 3;
+      } else if (loseTeam.includes(u.name)) {
+        u.losses += isRollback ? -1 : 1;
+        u.points += isRollback ? -1 : 1;
+      }
+      return u;
+    }));
   };
 
-  if (!activePlayerId || !currentUserProfile) {
+  const updateProfile = () => {
+    const updatedUsers = users.map(u => {
+      if (u.name === currentUser.name) {
+        return { ...u, mainPosition: editMainPos, subPosition: editSubPos };
+      }
+      return u;
+    });
+    setUsers(updatedUsers);
+    setCurrentUser({ ...currentUser, mainPosition: editMainPos, subPosition: editSubPos });
+    setIsEditingProfile(false);
+  };
+
+  if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
-          <div className="flex justify-center mb-6">
-            <div className="bg-orange-500 p-4 rounded-full">
-              <Lock className="w-8 h-8 text-white" />
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+          <h1 className="text-3xl font-bold text-white text-center mb-8">프리스타일 리부트 내전</h1>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-gray-400 mb-2">닉네임</label>
+              <input
+                type="text"
+                value={loginName}
+                onChange={(e) => setLoginName(e.target.value)}
+                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="닉네임을 입력하라"
+                required
+              />
             </div>
-          </div>
-          <h2 className="text-2xl font-bold text-center text-white mb-2">내전 입장</h2>
-          <p className="text-slate-400 text-center mb-8 text-sm">
-            처음오셨다면 사용할 닉네임과 4자리 비밀번호를 입력하여 자동 등록됩니다.<br/>
-            이미 가입하셨다면 기존 정보를 입력해주세요.
-          </p>
-          
-          <form onSubmit={handleAuth} className="space-y-4">
-            <input
-              type="text"
-              placeholder="인게임 닉네임"
-              value={nicknameInput}
-              onChange={(e) => setNicknameInput(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors"
-              maxLength={15} required
-            />
-            <input
-              type="password"
-              placeholder="비밀번호 4자리 (숫자)"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value.replace(/[^0-9]/g, ''))}
-              className="w-full bg-slate-950 border border-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 transition-colors tracking-[0.5em] font-mono text-center"
-              maxLength={4} required
-            />
-            {errorMsg && <p className="text-red-500 text-sm text-center">{errorMsg}</p>}
-            <button
-              type="submit"
-              className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform transition active:scale-95"
-            >
+            <div>
+              <label className="block text-gray-400 mb-2">비밀번호 (PIN)</label>
+              <input
+                type="password"
+                value={loginPin}
+                onChange={(e) => setLoginPin(e.target.value)}
+                maxLength={4}
+                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="4자리 숫자"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4 pb-4">
+              <div>
+                <label className="block text-gray-400 mb-2">주 포지션 (신규)</label>
+                <select
+                  value={regMainPos}
+                  onChange={(e) => setRegMainPos(e.target.value)}
+                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-gray-400 mb-2">부 포지션 (신규)</label>
+                <select
+                  value={regSubPos}
+                  onChange={(e) => setRegSubPos(e.target.value)}
+                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                </select>
+              </div>
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
               입장하기
             </button>
+            <p className="text-gray-500 text-sm text-center mt-4">최초 입장 시 입력한 비밀번호로 계정이 등록된다.</p>
           </form>
         </div>
       </div>
@@ -350,273 +302,347 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-300 font-sans">
-      {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-              <Sword className="text-white w-5 h-5" />
-            </div>
-            <h1 className="text-lg font-bold text-white tracking-tight hidden sm:block">프리스타일 리부트</h1>
-          </div>
-          <div className="flex gap-1 overflow-x-auto">
-            {[
-              { id: 'current', icon: Users, label: '현재 내전' },
-              { id: 'bracket', icon: Swords, label: '대진표/결과' },
-              { id: 'history', icon: History, label: '경기 기록' },
-              { id: 'ranking', icon: Trophy, label: '종합 랭킹' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                  activeTab === tab.id ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white hover:bg-slate-800/50'
-                }`}
-              >
-                <tab.icon size={16} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-full text-white">
-              <span className="text-orange-500 mr-1">●</span>{currentUserProfile.nickname}
-            </span>
-            <button onClick={() => { setActivePlayerId(null); setPinInput(''); }} className="text-slate-500 hover:text-white">
-              <LogOut size={18} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="max-w-5xl mx-auto p-4 pb-24">
-        
-        {/* TAB: Current Scrim (모집 중) */}
-        {activeTab === 'current' && (
-          <div className="space-y-6">
-            {!activeTournament || activeTournament.status === 'FINISHED' ? (
-              <div className="text-center py-20 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl">
-                <Users size={64} className="mx-auto text-slate-700 mb-6" />
-                <h2 className="text-2xl font-bold text-white mb-2">현재 진행 중인 내전이 없습니다</h2>
-                <p className="text-slate-400 mb-8">방장이 되어 새로운 내전을 개최하고 인원을 모집하세요.</p>
-                <button onClick={handleCreateTournament} className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-lg font-bold shadow-lg shadow-orange-500/20 transition-all">
-                  새 내전 개최하기
+    <div className="min-h-screen bg-gray-900 text-gray-100">
+      <nav className="bg-gray-800 border-b border-gray-700">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-8">
+              <span className="text-xl font-bold text-white">FS Reboot</span>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setActiveTab('main')}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'main' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                >
+                  <LayoutDashboard size={18} /><span>내전 대시보드</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'history' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                >
+                  <History size={18} /><span>전체 매치 기록</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('ranking')}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'ranking' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                >
+                  <Trophy size={18} /><span>종합 랭킹</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('profile')}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'profile' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                >
+                  <User size={18} /><span>내 프로필</span>
                 </button>
               </div>
-            ) : (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></span>
-                      {activeTournament.name}
-                    </h2>
-                    <p className="text-slate-400 text-sm mt-1">상태: {activeTournament.status === 'RECRUITING' ? '모집 중' : '진행 중'}</p>
-                  </div>
-                  {isHost && activeTournament.status === 'RECRUITING' && (
-                    <button onClick={handleAddDummyPlayers} className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded text-sm transition">
-                      <UserPlus size={16} /> 테스트봇 추가
-                    </button>
-                  )}
-                </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-300"><span className="font-bold text-indigo-400">{currentUser.name}</span>님</span>
+              <button onClick={handleLogout} className="text-gray-400 hover:text-white flex items-center space-x-1">
+                <LogOut size={18} /><span>로그아웃</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
 
-                {activeTournament.status === 'RECRUITING' && (
-                  <>
-                    <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6">
-                      <h3 className="font-bold text-white mb-4">참가자 목록 ({activeTournament.participants.length}명)</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {activeTournament.participants.map(p => (
-                          <div key={p.id} className="bg-slate-800 px-3 py-1.5 rounded-lg text-sm text-slate-300">
-                            {p.nickname}
-                          </div>
-                        ))}
-                      </div>
-                      {!activeTournament.participants.some(p => p.id === activePlayerId) && (
-                        <button 
-                          onClick={() => setTournaments(prev => prev.map(t => t.id === activeTournament.id ? { ...t, participants: [...t.participants, { id: activePlayerId, nickname: currentUserProfile.nickname }] } : t))}
-                          className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-xl shadow-lg"
-                        >
-                          내전 참가 신청
+      <main className="max-w-6xl mx-auto p-4 py-8">
+        {activeTab === 'profile' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">내 프로필</h2>
+            {(() => {
+              const myInfo = users.find(u => u.name === currentUser.name) || currentUser;
+              const totalMatches = myInfo.wins + myInfo.losses;
+              const winRate = totalMatches === 0 ? 0 : Math.round((myInfo.wins / totalMatches) * 100);
+
+              const myMatchHistory = rooms.flatMap(room =>
+                room.matches
+                  .filter(m => m.status === 'completed' && (m.teamA.includes(myInfo.name) || m.teamB.includes(myInfo.name)))
+                  .map(m => {
+                    const isTeamA = m.teamA.includes(myInfo.name);
+                    const isWin = (isTeamA && m.winner === 'teamA') || (!isTeamA && m.winner === 'teamB');
+                    return { ...m, isWin, roomName: room.name, roomId: room.id };
+                  })
+              ).sort((a, b) => b.id - a.id);
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 lg:col-span-1">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-bold">포지션 설정</h3>
+                      {!isEditingProfile ? (
+                        <button onClick={() => { setIsEditingProfile(true); setEditMainPos(myInfo.mainPosition || 'C'); setEditSubPos(myInfo.subPosition || 'PF'); }} className="text-indigo-400 hover:text-indigo-300">
+                          <Edit2 size={18} />
+                        </button>
+                      ) : (
+                        <button onClick={updateProfile} className="text-green-400 hover:text-green-300">
+                          <Check size={22} />
                         </button>
                       )}
                     </div>
-                    {isHost && activeTournament.participants.length >= 2 && (
-                      <div className="flex gap-4">
-                        <button onClick={() => handleGenerateTeamsAndBracket('tournament')} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-lg">
-                          단판 토너먼트 대진 생성
-                        </button>
-                        <button onClick={() => handleGenerateTeamsAndBracket('league')} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow-lg">
-                          풀리그 대진 생성
-                        </button>
+                    {isEditingProfile ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm text-gray-400 mb-1">주 포지션</label>
+                          <select value={editMainPos} onChange={(e) => setEditMainPos(e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg">
+                            {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-400 mb-1">부 포지션</label>
+                          <select value={editSubPos} onChange={(e) => setEditSubPos(e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg">
+                            {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="bg-gray-700 p-4 rounded-lg text-center">
+                          <div className="text-sm text-gray-400">주 포지션</div>
+                          <div className="text-2xl font-bold text-indigo-400">{myInfo.mainPosition || '-'}</div>
+                        </div>
+                        <div className="bg-gray-700 p-4 rounded-lg text-center">
+                          <div className="text-sm text-gray-400">부 포지션</div>
+                          <div className="text-2xl font-bold text-blue-400">{myInfo.subPosition || '-'}</div>
+                        </div>
                       </div>
                     )}
-                  </>
-                )}
 
-                {activeTournament.status === 'PLAYING' && (
-                  <div className="text-center py-10">
-                    <h3 className="text-xl font-bold text-white mb-4">팀 배정이 완료되었습니다!</h3>
-                    <p className="text-slate-400 mb-6">상단의 '대진표/결과' 탭으로 이동하여 경기를 시작하세요.</p>
-                    <button onClick={() => setActiveTab('bracket')} className="bg-orange-500 text-white px-6 py-2 rounded-lg font-bold">
-                      대진표 보러가기
-                    </button>
+                    <div className="mt-8">
+                      <h3 className="text-xl font-bold mb-4">내 전적 요약</h3>
+                      <div className="grid grid-cols-2 gap-4 text-center">
+                        <div className="bg-gray-700 p-3 rounded-lg">
+                          <div className="text-sm text-gray-400">승/패</div>
+                          <div className="text-lg font-bold text-white">{myInfo.wins}승 {myInfo.losses}패</div>
+                        </div>
+                        <div className="bg-gray-700 p-3 rounded-lg">
+                          <div className="text-sm text-gray-400">승률</div>
+                          <div className="text-lg font-bold text-white">{winRate}%</div>
+                        </div>
+                        <div className="bg-gray-700 p-3 rounded-lg col-span-2">
+                          <div className="text-sm text-gray-400">누적 승점</div>
+                          <div className="text-2xl font-bold text-yellow-400">{myInfo.points}점</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
+
+                  <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 lg:col-span-2">
+                    <h3 className="text-xl font-bold mb-6 flex items-center space-x-2">
+                      <History size={20} className="text-indigo-400" />
+                      <span>최근 참가 매치 기록</span>
+                    </h3>
+                    <div className="space-y-3">
+                      {myMatchHistory.length === 0 ? (
+                        <div className="text-center py-10 text-gray-500">참여한 매치 기록이 없다.</div>
+                      ) : (
+                        myMatchHistory.map((match, idx) => (
+                          <div key={idx} className="bg-gray-700 rounded-lg p-4 flex items-center justify-between border-l-4 border-transparent" style={{ borderLeftColor: match.isWin ? '#10B981' : '#EF4444' }}>
+                            <div>
+                              <div className="text-sm text-gray-400 mb-1">{match.roomName} - {match.round}</div>
+                              <div className="flex items-center space-x-3 text-sm">
+                                <span className={match.winner === 'teamA' ? 'text-white font-bold' : 'text-gray-400'}>{match.teamA.join(', ')}</span>
+                                <span className="text-gray-500">vs</span>
+                                <span className={match.winner === 'teamB' ? 'text-white font-bold' : 'text-gray-400'}>{match.teamB.join(', ')}</span>
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 ml-4">
+                              <span className={`px-3 py-1 rounded-full text-sm font-bold ${match.isWin ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                                {match.isWin ? '승리' : '패배'}
+                              </span>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
-        {/* TAB: Bracket / Matches */}
-        {activeTab === 'bracket' && (
+        {activeTab === 'main' && (
           <div className="space-y-6">
-            {!activeTournament || activeTournament.matches.length === 0 ? (
-              <div className="text-center py-20 text-slate-500">생성된 대진표가 없습니다.</div>
-            ) : (
-              <>
-                {isHost && (
-                  <div className="flex justify-end mb-4">
-                    <button onClick={handleEndTournament} className="bg-red-900/50 hover:bg-red-900 text-red-400 px-4 py-2 rounded-lg text-sm font-bold border border-red-800 transition">
-                      이 내전 강제 종료하기
-                    </button>
-                  </div>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {activeTournament.matches.map(match => {
-                    const t1 = activeTournament.teams.find(t => t.id === match.team1Id);
-                    const t2 = activeTournament.teams.find(t => t.id === match.team2Id);
-                    const isFinished = !!match.winnerId;
-                    
-                    // 권한: 방장이거나 해당 매치에 소속된 팀원만 결과 입력 가능
-                    const isParticipant = t1?.players.includes(activePlayerId) || t2?.players.includes(activePlayerId);
-                    const canInputResult = !isFinished && (isParticipant || isHost);
-
-                    if (match.isBye) return null; // 부전승 매치는 숨김 처리
-
-                    return (
-                      <div key={match.id} className={`bg-slate-900 border rounded-2xl p-5 shadow-lg relative ${isFinished ? 'border-slate-800 opacity-60' : 'border-orange-500/50'}`}>
-                        <div className="absolute -top-3 left-4 bg-slate-950 border border-slate-700 px-3 py-1 rounded-full text-xs font-bold text-orange-400">
-                          {match.name || '매치'}
-                        </div>
-                        {isFinished && isHost && (
-                          <button onClick={() => handleSetMatchWinner(match.id, null)} className="absolute top-4 right-4 text-xs text-slate-400 hover:text-red-400 underline flex items-center gap-1">
-                            <Undo2 size={12}/> 결과 되돌리기
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">진행 중인 내전</h2>
+              <button onClick={createRoom} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg font-bold transition-colors">
+                + 새 내전 개최
+              </button>
+            </div>
+            
+            <div className="grid gap-6">
+              {rooms.length === 0 ? (
+                <div className="text-center py-20 text-gray-500 bg-gray-800 rounded-xl border border-gray-700">진행 중인 내전이 없다.</div>
+              ) : (
+                rooms.map(room => (
+                  <div key={room.id} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                    <div className="bg-gray-750 p-4 border-b border-gray-700 flex justify-between items-center">
+                      <div>
+                        <h3 className="text-xl font-bold">{room.name}</h3>
+                        <p className="text-sm text-gray-400">방장: {room.host}</p>
+                      </div>
+                      <div className="flex space-x-2">
+                        {room.host === currentUser.name && room.status === 'recruiting' && (
+                          <button onClick={() => addTestBots(room.id)} className="bg-gray-600 hover:bg-gray-500 px-3 py-1 rounded text-sm transition-colors">
+                            + 테스트봇 8명
                           </button>
                         )}
-                        
-                        <div className="flex justify-between items-stretch mt-4 gap-4">
-                          {/* Team 1 */}
-                          <div className="flex-1 bg-slate-950 rounded-xl p-4 flex flex-col items-center justify-center text-center border border-slate-800">
-                            <div className={`text-lg font-bold mb-2 ${match.winnerId === t1?.id ? 'text-green-400' : 'text-white'}`}>
-                              {t1 ? t1.name : '승자 대기 중...'}
-                            </div>
-                            <div className="text-xs text-slate-500 mb-3 line-clamp-2">
-                              {t1 ? t1.players.map(pid => players.find(p=>p.id===pid)?.nickname).join(', ') : '-'}
-                            </div>
-                            {canInputResult && t1 && t2 && (
-                              <button onClick={() => handleSetMatchWinner(match.id, t1.id)} className="w-full bg-slate-800 hover:bg-green-600 text-white text-xs font-bold py-2 rounded transition">
-                                {t1.players.includes(activePlayerId) ? '🏆 우리팀 승리' : '승리 기록'}
-                              </button>
-                            )}
-                          </div>
-                          
-                          <div className="flex flex-col justify-center font-black text-slate-600 text-xl italic">VS</div>
-                          
-                          {/* Team 2 */}
-                          <div className="flex-1 bg-slate-950 rounded-xl p-4 flex flex-col items-center justify-center text-center border border-slate-800">
-                            <div className={`text-lg font-bold mb-2 ${match.winnerId === t2?.id ? 'text-green-400' : 'text-white'}`}>
-                              {t2 ? t2.name : '승자 대기 중...'}
-                            </div>
-                            <div className="text-xs text-slate-500 mb-3 line-clamp-2">
-                              {t2 ? t2.players.map(pid => players.find(p=>p.id===pid)?.nickname).join(', ') : '-'}
-                            </div>
-                            {canInputResult && t1 && t2 && (
-                              <button onClick={() => handleSetMatchWinner(match.id, t2.id)} className="w-full bg-slate-800 hover:bg-green-600 text-white text-xs font-bold py-2 rounded transition">
-                                {t2.players.includes(activePlayerId) ? '🏆 우리팀 승리' : '승리 기록'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
+                        <span className="bg-gray-700 px-3 py-1 rounded-full text-sm">
+                          {room.status === 'recruiting' ? '모집 중' : room.status === 'teams_ready' ? '팀 배정 완료' : '진행 중'}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* TAB: History */}
-        {activeTab === 'history' && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><History size={20} /> 역대 매치 기록</h2>
-            {pastMatches.length === 0 ? (
-              <div className="text-center py-10 text-slate-500">기록된 경기가 없습니다.</div>
-            ) : (
-              pastMatches.map((match, idx) => {
-                const t1 = match.teams.find(t => t.id === match.team1Id);
-                const t2 = match.teams.find(t => t.id === match.team2Id);
-                return (
-                  <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div className="text-sm text-slate-500 w-full sm:w-1/4 text-center sm:text-left">
-                      <div className="font-bold text-orange-500/80 mb-1">{match.tourneyName}</div>
-                      {new Date(match.completedAt).toLocaleString()}
                     </div>
-                    <div className="flex-1 flex justify-center items-center gap-6 w-full">
-                      <div className={`text-right w-1/3 ${match.winnerId === t1?.id ? 'text-green-400 font-bold' : 'text-slate-400'}`}>
-                        {t1?.name}
-                      </div>
-                      <div className="text-slate-600 text-xs font-black bg-slate-950 px-2 py-1 rounded">VS</div>
-                      <div className={`text-left w-1/3 ${match.winnerId === t2?.id ? 'text-green-400 font-bold' : 'text-slate-400'}`}>
-                        {t2?.name}
-                      </div>
+
+                    <div className="p-6">
+                      {room.status === 'recruiting' && (
+                        <div className="space-y-6">
+                          <div>
+                            <h4 className="text-gray-400 mb-2 flex items-center"><Users size={16} className="mr-2" /> 참가자 ({room.participants.length}명)</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {room.participants.map(p => (
+                                <span key={p} className="bg-gray-700 px-3 py-1 rounded-lg text-sm">{p}</span>
+                              ))}
+                            </div>
+                          </div>
+                          {!room.participants.includes(currentUser.name) ? (
+                            <button onClick={() => joinRoom(room.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold transition-colors">
+                              참가 신청하기
+                            </button>
+                          ) : (
+                            <div className="w-full bg-green-900/30 text-green-400 py-3 rounded-lg text-center font-bold border border-green-800">
+                              참가 신청 완료
+                            </div>
+                          )}
+                          {room.host === currentUser.name && room.participants.length >= 2 && (
+                            <button onClick={() => generateTeams(room.id)} className="w-full bg-yellow-600 hover:bg-yellow-700 py-3 rounded-lg font-bold transition-colors">
+                              모집 마감 및 팀 생성
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {room.status === 'teams_ready' && (
+                        <div className="space-y-6">
+                          <div className="grid grid-cols-2 gap-4 text-center">
+                            <div className="bg-gray-700 p-4 rounded-xl border-t-4 border-indigo-500">
+                              <h4 className="font-bold mb-4 text-indigo-400">Team A</h4>
+                              <div className="space-y-2">
+                                {room.teams[0].map(p => <div key={p}>{p}</div>)}
+                              </div>
+                            </div>
+                            <div className="bg-gray-700 p-4 rounded-xl border-t-4 border-pink-500">
+                              <h4 className="font-bold mb-4 text-pink-400">Team B</h4>
+                              <div className="space-y-2">
+                                {room.teams[1].map(p => <div key={p}>{p}</div>)}
+                              </div>
+                            </div>
+                          </div>
+                          {room.host === currentUser.name && (
+                            <button onClick={() => generateTournament(room.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold transition-colors">
+                              매치 생성하기
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {room.status === 'playing' && (
+                        <div className="space-y-4">
+                          {room.matches.map(match => (
+                            <div key={match.id} className="bg-gray-700 p-4 rounded-lg flex items-center justify-between">
+                              <div className="flex-1">
+                                <span className="text-sm text-gray-400 block mb-2">{match.round}</span>
+                                <div className="flex items-center space-x-4">
+                                  <span className={`font-bold ${match.winner === 'teamA' ? 'text-green-400' : ''}`}>{match.teamA.join(', ')}</span>
+                                  <span className="text-gray-500 text-sm">vs</span>
+                                  <span className={`font-bold ${match.winner === 'teamB' ? 'text-green-400' : ''}`}>{match.teamB.join(', ')}</span>
+                                </div>
+                              </div>
+                              <div className="flex space-x-2">
+                                {match.status === 'pending' ? (
+                                  (room.host === currentUser.name || match.teamA.includes(currentUser.name) || match.teamB.includes(currentUser.name)) && (
+                                    <>
+                                      <button onClick={() => updateMatchResult(room.id, match.id, 'teamA')} className="bg-indigo-600 hover:bg-indigo-500 px-3 py-1 rounded text-sm">A팀 승</button>
+                                      <button onClick={() => updateMatchResult(room.id, match.id, 'teamB')} className="bg-pink-600 hover:bg-pink-500 px-3 py-1 rounded text-sm">B팀 승</button>
+                                    </>
+                                  )
+                                ) : (
+                                  <>
+                                    <span className="px-3 py-1 bg-gray-800 rounded text-sm text-gray-300 border border-gray-600">결과 완료</span>
+                                    {room.host === currentUser.name && (
+                                      <button onClick={() => rollbackMatchResult(room.id, match.id)} className="bg-red-600 hover:bg-red-500 px-3 py-1 rounded text-sm">결과 수정</button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                );
-              })
-            )}
+                ))
+              )}
+            </div>
           </div>
         )}
 
-        {/* TAB: Ranking */}
-        {activeTab === 'ranking' && (
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-            <div className="p-6 border-b border-slate-800">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Trophy size={24} className="text-orange-500" /> 종합 누적 랭킹
-              </h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-950/50 text-xs uppercase text-slate-500">
+        {activeTab === 'history' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">전체 매치 기록</h2>
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-gray-750 text-gray-400 border-b border-gray-700">
                   <tr>
-                    <th className="px-6 py-4">순위</th>
-                    <th className="px-6 py-4">닉네임</th>
-                    <th className="px-6 py-4 text-center">승점</th>
-                    <th className="px-6 py-4 text-center">전적 (승/패)</th>
+                    <th className="p-4">내전 이름</th>
+                    <th className="p-4">승리 팀</th>
+                    <th className="p-4">패배 팀</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {leaderboard.map((player, idx) => (
-                    <tr key={player.id} className={`hover:bg-slate-800/50 transition-colors ${player.id === activePlayerId ? 'bg-orange-900/10' : ''}`}>
-                      <td className="px-6 py-4 font-medium">
-                        {idx < 3 ? <span className="text-xl font-black text-orange-500">{idx + 1}</span> : <span className="text-slate-500">{idx + 1}</span>}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-white flex items-center gap-2">
-                        {player.nickname}
-                        {isHost && player.id !== activePlayerId && (
-                          <button onClick={() => handleResetPin(player.id)} className="ml-2 text-[10px] bg-slate-800 hover:bg-red-900/50 text-slate-400 hover:text-red-400 border border-slate-700 rounded px-2 py-0.5 transition">
-                            비밀번호 초기화
+                <tbody className="divide-y divide-gray-700">
+                  {rooms.flatMap(room => 
+                    room.matches.filter(m => m.status === 'completed').map(match => (
+                      <tr key={`${room.id}-${match.id}`} className="hover:bg-gray-750">
+                        <td className="p-4">{room.name}</td>
+                        <td className="p-4 text-green-400 font-bold">{match.winner === 'teamA' ? match.teamA.join(', ') : match.teamB.join(', ')}</td>
+                        <td className="p-4 text-gray-500">{match.winner === 'teamA' ? match.teamB.join(', ') : match.teamA.join(', ')}</td>
+                      </tr>
+                    ))
+                  ).reverse()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'ranking' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">종합 랭킹</h2>
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-gray-750 text-gray-400 border-b border-gray-700">
+                  <tr>
+                    <th className="p-4 w-16">순위</th>
+                    <th className="p-4">닉네임</th>
+                    <th className="p-4">주/부 포지션</th>
+                    <th className="p-4">승점</th>
+                    <th className="p-4">전적</th>
+                    <th className="p-4 text-right">관리</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {[...users].sort((a, b) => b.points - a.points).map((user, idx) => (
+                    <tr key={user.name} className="hover:bg-gray-750">
+                      <td className="p-4 font-bold text-gray-400">{idx + 1}</td>
+                      <td className="p-4 font-bold">{user.name}</td>
+                      <td className="p-4 text-sm text-indigo-300">{user.mainPosition || '-'}/{user.subPosition || '-'}</td>
+                      <td className="p-4 text-yellow-400 font-bold">{user.points}점</td>
+                      <td className="p-4 text-gray-400">{user.wins}승 {user.losses}패</td>
+                      <td className="p-4 text-right">
+                        {user.name !== currentUser.name && (
+                          <button onClick={() => resetPin(user.name)} className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
+                            초기화
                           </button>
                         )}
-                      </td>
-                      <td className="px-6 py-4 text-center font-black text-orange-400 text-lg">
-                        {player.points}
-                      </td>
-                      <td className="px-6 py-4 text-center text-slate-400">
-                        {player.wins}승 {player.losses}패
                       </td>
                     </tr>
                   ))}
@@ -625,7 +651,6 @@ export default function App() {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
