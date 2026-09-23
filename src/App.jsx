@@ -1,18 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, History, Users, LogOut, User, Edit2, Check, LayoutDashboard } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase'; // firebase.js에서 db를 불러옴
+import AuthPage from './components/AuthPage';
+import Navigation from './components/Navigation';
+import ProfilePage from './pages/ProfilePage';
+import HistoryPage from './pages/HistoryPage';
+import RankingPage from './pages/RankingPage';
 
 const POSITIONS = ['C', 'PF', 'CT', 'SF', 'SG', 'PG', 'SW', 'DG'];
+const INVITATION_CODE = '스포스프';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [activeTab, setActiveTab] = useState('main');
+  const [authMode, setAuthMode] = useState('login');
 
   const [loginName, setLoginName] = useState('');
   const [loginPin, setLoginPin] = useState('');
+  const [signupName, setSignupName] = useState('');
+  const [signupPin, setSignupPin] = useState('');
+  const [signupPinConfirm, setSignupPinConfirm] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
   const [regMainPos, setRegMainPos] = useState('C');
   const [regSubPos, setRegSubPos] = useState('PF');
 
@@ -51,30 +62,51 @@ export default function App() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!loginName || !loginPin) return alert('닉네임과 비밀번호를 입력하라.');
+    if (!loginName || !loginPin) return alert('닉네임과 비밀번호를 입력하세요.');
 
     const existingUser = users.find(u => u.name === loginName);
-    if (existingUser) {
-      if (existingUser.pin === loginPin || existingUser.pin === '0000') {
-        setCurrentUser(existingUser);
-        setLoginPin('');
-      } else {
-        alert('비밀번호가 틀렸다.');
-      }
-    } else {
-      const newUser = {
-        name: loginName,
-        pin: loginPin,
-        mainPosition: regMainPos,
-        subPosition: regSubPos,
-        wins: 0,
-        losses: 0,
-        points: 0
-      };
-      await setDoc(doc(db, 'users', loginName), newUser);
-      setCurrentUser(newUser);
-      setLoginPin('');
+    if (!existingUser) {
+      return alert('가입된 계정을 찾을 수 없습니다. 먼저 회원가입을 진행하세요.');
     }
+
+    if (existingUser.pin === loginPin || existingUser.pin === '0000') {
+      setCurrentUser(existingUser);
+      setLoginPin('');
+    } else {
+      alert('비밀번호가 틀렸습니다.');
+    }
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    if (!signupName || !signupPin || !signupPinConfirm || !invitationCode) {
+      return alert('회원가입 정보를 모두 입력하세요.');
+    }
+    if (invitationCode !== INVITATION_CODE) {
+      return alert('계정 생성 코드가 올바르지 않습니다.');
+    }
+    if (signupPin !== signupPinConfirm) {
+      return alert('비밀번호가 일치하지 않습니다.');
+    }
+    if (users.some(user => user.name === signupName)) {
+      return alert('이미 사용 중인 닉네임입니다.');
+    }
+
+    const newUser = {
+      name: signupName,
+      pin: signupPin,
+      mainPosition: regMainPos,
+      subPosition: regSubPos,
+      wins: 0,
+      losses: 0,
+      points: 0
+    };
+    await setDoc(doc(db, 'users', signupName), newUser);
+    setCurrentUser(newUser);
+    setSignupName('');
+    setSignupPin('');
+    setSignupPinConfirm('');
+    setInvitationCode('');
   };
 
   const handleLogout = () => {
@@ -247,213 +279,47 @@ export default function App() {
   };
 
   if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
-          <h1 className="text-3xl font-bold text-white text-center mb-8">프리스타일 리부트 내전</h1>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-gray-400 mb-2">닉네임</label>
-              <input
-                type="text"
-                value={loginName}
-                onChange={(e) => setLoginName(e.target.value)}
-                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="닉네임을 입력하라"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-gray-400 mb-2">비밀번호 (PIN)</label>
-              <input
-                type="password"
-                value={loginPin}
-                onChange={(e) => setLoginPin(e.target.value)}
-                maxLength={4}
-                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="4자리 숫자"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4 pb-4">
-              <div>
-                <label className="block text-gray-400 mb-2">주 포지션 (신규)</label>
-                <select
-                  value={regMainPos}
-                  onChange={(e) => setRegMainPos(e.target.value)}
-                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-gray-400 mb-2">부 포지션 (신규)</label>
-                <select
-                  value={regSubPos}
-                  onChange={(e) => setRegSubPos(e.target.value)}
-                  className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
-                </select>
-              </div>
-            </div>
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-              입장하기
-            </button>
-            <p className="text-gray-500 text-sm text-center mt-4">최초 입장 시 입력한 비밀번호로 계정이 등록된다.</p>
-          </form>
-        </div>
-      </div>
-    );
+    return <AuthPage
+      authMode={authMode}
+      setAuthMode={setAuthMode}
+      loginName={loginName}
+      setLoginName={setLoginName}
+      loginPin={loginPin}
+      setLoginPin={setLoginPin}
+      signupName={signupName}
+      setSignupName={setSignupName}
+      signupPin={signupPin}
+      setSignupPin={setSignupPin}
+      signupPinConfirm={signupPinConfirm}
+      setSignupPinConfirm={setSignupPinConfirm}
+      invitationCode={invitationCode}
+      setInvitationCode={setInvitationCode}
+      regMainPos={regMainPos}
+      setRegMainPos={setRegMainPos}
+      regSubPos={regSubPos}
+      setRegSubPos={setRegSubPos}
+      handleLogin={handleLogin}
+      handleSignup={handleSignup}
+    />;
   }
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
-      <nav className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <span className="text-xl font-bold text-white">FS Reboot</span>
-              <div className="flex space-x-4">
-                <button onClick={() => setActiveTab('main')} className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'main' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}>
-                  <LayoutDashboard size={18} /><span>내전 대시보드</span>
-                </button>
-                <button onClick={() => setActiveTab('history')} className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'history' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}>
-                  <History size={18} /><span>전체 매치 기록</span>
-                </button>
-                <button onClick={() => setActiveTab('ranking')} className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'ranking' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}>
-                  <Trophy size={18} /><span>종합 랭킹</span>
-                </button>
-                <button onClick={() => setActiveTab('profile')} className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'profile' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}>
-                  <User size={18} /><span>내 프로필</span>
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-300"><span className="font-bold text-indigo-400">{currentUser.name}</span>님</span>
-              <button onClick={handleLogout} className="text-gray-400 hover:text-white flex items-center space-x-1">
-                <LogOut size={18} /><span>로그아웃</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navigation activeTab={activeTab} setActiveTab={setActiveTab} currentUser={currentUser} handleLogout={handleLogout} />
 
       <main className="max-w-6xl mx-auto p-4 py-8">
-        {activeTab === 'profile' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">내 프로필</h2>
-            {(() => {
-              const myInfo = users.find(u => u.name === currentUser.name) || currentUser;
-              const totalMatches = myInfo.wins + myInfo.losses;
-              const winRate = totalMatches === 0 ? 0 : Math.round((myInfo.wins / totalMatches) * 100);
-
-              const myMatchHistory = rooms.flatMap(room =>
-                room.matches
-                  .filter(m => m.status === 'completed' && (m.teamA.includes(myInfo.name) || m.teamB.includes(myInfo.name)))
-                  .map(m => {
-                    const isTeamA = m.teamA.includes(myInfo.name);
-                    const isWin = (isTeamA && m.winner === 'teamA') || (!isTeamA && m.winner === 'teamB');
-                    return { ...m, isWin, roomName: room.name, roomId: room.id };
-                  })
-              ).sort((a, b) => b.id - a.id);
-
-              return (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 lg:col-span-1">
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold">포지션 설정</h3>
-                      {!isEditingProfile ? (
-                        <button onClick={() => { setIsEditingProfile(true); setEditMainPos(myInfo.mainPosition || 'C'); setEditSubPos(myInfo.subPosition || 'PF'); }} className="text-indigo-400 hover:text-indigo-300">
-                          <Edit2 size={18} />
-                        </button>
-                      ) : (
-                        <button onClick={updateProfile} className="text-green-400 hover:text-green-300">
-                          <Check size={22} />
-                        </button>
-                      )}
-                    </div>
-                    {isEditingProfile ? (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm text-gray-400 mb-1">주 포지션</label>
-                          <select value={editMainPos} onChange={(e) => setEditMainPos(e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg">
-                            {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm text-gray-400 mb-1">부 포지션</label>
-                          <select value={editSubPos} onChange={(e) => setEditSubPos(e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg">
-                            {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="bg-gray-700 p-4 rounded-lg text-center">
-                          <div className="text-sm text-gray-400">주 포지션</div>
-                          <div className="text-2xl font-bold text-indigo-400">{myInfo.mainPosition || '-'}</div>
-                        </div>
-                        <div className="bg-gray-700 p-4 rounded-lg text-center">
-                          <div className="text-sm text-gray-400">부 포지션</div>
-                          <div className="text-2xl font-bold text-blue-400">{myInfo.subPosition || '-'}</div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mt-8">
-                      <h3 className="text-xl font-bold mb-4">내 전적 요약</h3>
-                      <div className="grid grid-cols-2 gap-4 text-center">
-                        <div className="bg-gray-700 p-3 rounded-lg">
-                          <div className="text-sm text-gray-400">승/패</div>
-                          <div className="text-lg font-bold text-white">{myInfo.wins}승 {myInfo.losses}패</div>
-                        </div>
-                        <div className="bg-gray-700 p-3 rounded-lg">
-                          <div className="text-sm text-gray-400">승률</div>
-                          <div className="text-lg font-bold text-white">{winRate}%</div>
-                        </div>
-                        <div className="bg-gray-700 p-3 rounded-lg col-span-2">
-                          <div className="text-sm text-gray-400">누적 승점</div>
-                          <div className="text-2xl font-bold text-yellow-400">{myInfo.points}점</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 lg:col-span-2">
-                    <h3 className="text-xl font-bold mb-6 flex items-center space-x-2">
-                      <History size={20} className="text-indigo-400" />
-                      <span>최근 참가 매치 기록</span>
-                    </h3>
-                    <div className="space-y-3">
-                      {myMatchHistory.length === 0 ? (
-                        <div className="text-center py-10 text-gray-500">참여한 매치 기록이 없다.</div>
-                      ) : (
-                        myMatchHistory.map((match, idx) => (
-                          <div key={idx} className="bg-gray-700 rounded-lg p-4 flex items-center justify-between border-l-4 border-transparent" style={{ borderLeftColor: match.isWin ? '#10B981' : '#EF4444' }}>
-                            <div>
-                              <div className="text-sm text-gray-400 mb-1">{match.roomName} - {match.round}</div>
-                              <div className="flex items-center space-x-3 text-sm">
-                                <span className={match.winner === 'teamA' ? 'text-white font-bold' : 'text-gray-400'}>{match.teamA.join(', ')}</span>
-                                <span className="text-gray-500">vs</span>
-                                <span className={match.winner === 'teamB' ? 'text-white font-bold' : 'text-gray-400'}>{match.teamB.join(', ')}</span>
-                              </div>
-                            </div>
-                            <div className="flex-shrink-0 ml-4">
-                              <span className={`px-3 py-1 rounded-full text-sm font-bold ${match.isWin ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-                                {match.isWin ? '승리' : '패배'}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
+        {activeTab === 'profile' && <ProfilePage
+          currentUser={currentUser}
+          users={users}
+          rooms={rooms}
+          isEditingProfile={isEditingProfile}
+          setIsEditingProfile={setIsEditingProfile}
+          editMainPos={editMainPos}
+          setEditMainPos={setEditMainPos}
+          editSubPos={editSubPos}
+          setEditSubPos={setEditSubPos}
+          updateProfile={updateProfile}
+        />}
 
         {activeTab === 'main' && (
           <div className="space-y-6">
@@ -580,71 +446,9 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'history' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">전체 매치 기록</h2>
-            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-gray-750 text-gray-400 border-b border-gray-700">
-                  <tr>
-                    <th className="p-4">내전 이름</th>
-                    <th className="p-4">승리 팀</th>
-                    <th className="p-4">패배 팀</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {rooms.flatMap(room => 
-                    room.matches.filter(m => m.status === 'completed').map(match => (
-                      <tr key={`${room.id}-${match.id}`} className="hover:bg-gray-750">
-                        <td className="p-4">{room.name}</td>
-                        <td className="p-4 text-green-400 font-bold">{match.winner === 'teamA' ? match.teamA.join(', ') : match.teamB.join(', ')}</td>
-                        <td className="p-4 text-gray-500">{match.winner === 'teamA' ? match.teamB.join(', ') : match.teamA.join(', ')}</td>
-                      </tr>
-                    ))
-                  ).reverse()}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {activeTab === 'history' && <HistoryPage rooms={rooms} />}
 
-        {activeTab === 'ranking' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">종합 랭킹</h2>
-            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-              <table className="w-full text-left">
-                <thead className="bg-gray-750 text-gray-400 border-b border-gray-700">
-                  <tr>
-                    <th className="p-4 w-16">순위</th>
-                    <th className="p-4">닉네임</th>
-                    <th className="p-4">주/부 포지션</th>
-                    <th className="p-4">승점</th>
-                    <th className="p-4">전적</th>
-                    <th className="p-4 text-right">관리</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {[...users].sort((a, b) => b.points - a.points).map((user, idx) => (
-                    <tr key={user.name} className="hover:bg-gray-750">
-                      <td className="p-4 font-bold text-gray-400">{idx + 1}</td>
-                      <td className="p-4 font-bold">{user.name}</td>
-                      <td className="p-4 text-sm text-indigo-300">{user.mainPosition || '-'}/{user.subPosition || '-'}</td>
-                      <td className="p-4 text-yellow-400 font-bold">{user.points}점</td>
-                      <td className="p-4 text-gray-400">{user.wins}승 {user.losses}패</td>
-                      <td className="p-4 text-right">
-                        {user.name !== currentUser.name && (
-                          <button onClick={() => resetPin(user.name)} className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
-                            초기화
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {activeTab === 'ranking' && <RankingPage users={users} currentUser={currentUser} resetPin={resetPin} />}
       </main>
     </div>
   );
