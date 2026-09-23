@@ -1,4 +1,4 @@
-import { History, LayoutDashboard, LogOut, Trophy, User } from 'lucide-react';
+import { History, LayoutDashboard, LogOut, Shield, Trophy, User } from 'lucide-react';
 
 export default function Navigation({ activeTab, setActiveTab, currentUser, handleLogout }) {
   const tabClass = (tab) => `flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === tab ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`;
@@ -22,6 +22,11 @@ export default function Navigation({ activeTab, setActiveTab, currentUser, handl
               <button onClick={() => setActiveTab('profile')} className={tabClass('profile')}>
                 <User size={18} /><span>내 프로필</span>
               </button>
+              {currentUser.isAdmin && (
+                <button onClick={() => setActiveTab('accounts')} className={tabClass('accounts')}>
+                  <Shield size={18} /><span>계정 관리</span>
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-4">

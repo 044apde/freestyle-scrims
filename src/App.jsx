@@ -7,6 +7,7 @@ import Navigation from './components/Navigation';
 import ProfilePage from './pages/ProfilePage';
 import HistoryPage from './pages/HistoryPage';
 import RankingPage from './pages/RankingPage';
+import AccountManagementPage from './pages/AccountManagementPage';
 
 const POSITIONS = ['C', 'PF', 'CT', 'SF', 'SG', 'PG', 'SW', 'DG'];
 const INVITATION_CODE = '스포스프';
@@ -308,6 +309,19 @@ export default function App() {
     }
   };
 
+  const updateMember = async (userName, updates) => {
+    if (!currentUser?.isAdmin) return;
+    const member = users.find(user => user.name === userName);
+    if (!member) return;
+
+    try {
+      await setDoc(doc(db, 'users', userName), { ...member, ...updates, name: userName, isAdmin: false });
+    } catch (error) {
+      console.error('멤버 정보 수정 실패:', error);
+      alert('멤버 정보 수정에 실패했습니다. 잠시 후 다시 시도하세요.');
+    }
+  };
+
   if (!currentUser) {
     return <AuthPage
       authMode={authMode}
@@ -480,6 +494,8 @@ export default function App() {
         {activeTab === 'history' && <HistoryPage rooms={rooms} />}
 
         {activeTab === 'ranking' && <RankingPage users={users} currentUser={currentUser} resetPin={resetPin} />}
+
+        {activeTab === 'accounts' && currentUser.isAdmin && <AccountManagementPage users={users} updateMember={updateMember} />}
       </main>
     </div>
   );
