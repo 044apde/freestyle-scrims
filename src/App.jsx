@@ -560,7 +560,7 @@ export default function App() {
       <nav className="bg-gray-800 border-b border-gray-700">
         <div className="mx-auto max-w-6xl overflow-hidden px-4">
           <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2">
-            <span className="shrink-0 text-xl font-bold text-white">FS Reboot</span>
+            <span className="shrink-0 text-xl font-bold text-indigo-400">FS Reboot</span>
             <div className="flex min-w-0 flex-1 items-center justify-end gap-2 max-md:order-3 max-md:basis-full">
               <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
                 <button

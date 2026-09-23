@@ -1,3 +1,87 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Gray base with white accents */
+.bg-gray-900 {
+	background-color: #374151 !important;
+}
+
+.bg-gray-800 {
+	background-color: #1f2937 !important;
+}
+
+.bg-gray-750 {
+	background-color: #27303f !important;
+}
+
+.bg-gray-700 {
+	background-color: #4b5563 !important;
+}
+
+.bg-gray-600 {
+	background-color: #6b7280 !important;
+}
+
+.hover\:bg-gray-700:hover {
+	background-color: #4b5563 !important;
+}
+
+.hover\:bg-gray-600:hover {
+	background-color: #6b7280 !important;
+}
+
+.hover\:bg-gray-500:hover {
+	background-color: #9ca3af !important;
+}
+
+.text-gray-100 {
+	color: #f3f4f6 !important;
+}
+
+.text-gray-300 {
+	color: #d1d5db !important;
+}
+
+.text-gray-400 {
+	color: #d1d5db !important;
+}
+
+.text-gray-500 {
+	color: #9ca3af !important;
+}
+
+.text-indigo-400,
+.text-indigo-300 {
+	color: #f97316 !important;
+}
+
+.hover\:text-indigo-300:hover {
+	color: #ea580c !important;
+}
+
+.bg-indigo-600,
+.hover\:bg-indigo-700:hover,
+.hover\:bg-indigo-500:hover {
+	background-color: #f97316 !important;
+	color: #ffffff !important;
+}
+
+.focus\:ring-indigo-500:focus {
+	--tw-ring-color: #f97316 !important;
+}
+
+.border-gray-700 {
+	border-color: #6b7280 !important;
+}
+
+.border-gray-600 {
+	border-color: #9ca3af !important;
+}
+
+.bg-gray-800,
+.bg-gray-750,
+.bg-gray-700,
+.bg-gray-600 {
+	color: #f3f4f6;
+}
