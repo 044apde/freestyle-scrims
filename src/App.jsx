@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, History, Users, LogOut, User, Edit2, Check, LayoutDashboard } from 'lucide-react';
+import { Trophy, History, Users, LogOut, User, Edit2, Check, LayoutDashboard, UserPlus, Trash2 } from 'lucide-react';
 
 const POSITIONS = ['C', 'PF', 'SF', 'SG', 'PG'];
 const INVITATION_CODE = '다시만난세계';
+const ADMIN_ACCOUNT = {
+  name: 'root',
+  pin: '044apde',
+  isAdmin: true,
+  mainPosition: 'C',
+  subPosition: 'PF',
+  wins: 0,
+  losses: 0,
+  points: 0
+};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -23,14 +33,32 @@ export default function App() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editMainPos, setEditMainPos] = useState('');
   const [editSubPos, setEditSubPos] = useState('');
+  const [isAccountFormOpen, setIsAccountFormOpen] = useState(false);
+  const [editingAccountName, setEditingAccountName] = useState(null);
+  const [accountForm, setAccountForm] = useState({
+    name: '',
+    pin: '',
+    mainPosition: 'C',
+    subPosition: 'PF',
+    wins: 0,
+    losses: 0,
+    points: 0,
+    isAdmin: false
+  });
 
   useEffect(() => {
     const savedUsers = JSON.parse(localStorage.getItem('freestyle_users')) || [];
     const savedRooms = JSON.parse(localStorage.getItem('freestyle_rooms')) || [];
     const savedCurrentUser = JSON.parse(localStorage.getItem('freestyle_currentUser'));
-    setUsers(savedUsers);
+    const usersWithAdmin = savedUsers.some(user => user.name === ADMIN_ACCOUNT.name)
+      ? savedUsers.map(user => user.name === ADMIN_ACCOUNT.name ? { ...user, ...ADMIN_ACCOUNT } : user)
+      : [ADMIN_ACCOUNT, ...savedUsers];
+    const restoredUser = savedCurrentUser
+      ? usersWithAdmin.find(user => user.name === savedCurrentUser.name)
+      : null;
+    setUsers(usersWithAdmin);
     setRooms(savedRooms);
-    if (savedCurrentUser) setCurrentUser(savedCurrentUser);
+    if (restoredUser) setCurrentUser(restoredUser);
   }, []);
 
   useEffect(() => {
@@ -85,6 +113,7 @@ export default function App() {
     const newUser = {
       name: signupName,
       pin: signupPin,
+      isAdmin: false,
       mainPosition: regMainPos,
       subPosition: regSubPos,
       wins: 0,
@@ -105,9 +134,129 @@ export default function App() {
   };
 
   const resetPin = (userName) => {
+    if (!currentUser?.isAdmin) return;
     const updatedUsers = users.map(u => u.name === userName ? { ...u, pin: '0000' } : u);
     setUsers(updatedUsers);
     alert(`${userName}의 비밀번호가 '0000'으로 초기화되었습니다.`);
+  };
+
+  const openAccountForm = (user = null) => {
+    setIsAccountFormOpen(true);
+    if (user) {
+      setEditingAccountName(user.name);
+      setAccountForm({
+        name: user.name,
+        pin: user.pin,
+        mainPosition: user.mainPosition || 'C',
+        subPosition: user.subPosition || 'PF',
+        wins: user.wins || 0,
+        losses: user.losses || 0,
+        points: user.points || 0,
+        isAdmin: Boolean(user.isAdmin)
+      });
+    } else {
+      setEditingAccountName(null);
+      setAccountForm({
+        name: '',
+        pin: '',
+        mainPosition: 'C',
+        subPosition: 'PF',
+        wins: 0,
+        losses: 0,
+        points: 0,
+        isAdmin: false
+      });
+    }
+  };
+
+  const closeAccountForm = () => {
+    setIsAccountFormOpen(false);
+    setEditingAccountName(null);
+    setAccountForm({
+      name: '',
+      pin: '',
+      mainPosition: 'C',
+      subPosition: 'PF',
+      wins: 0,
+      losses: 0,
+      points: 0,
+      isAdmin: false
+    });
+  };
+
+  const handleAccountFormChange = (field, value) => {
+    setAccountForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const saveAccount = (e) => {
+    e.preventDefault();
+    if (!currentUser?.isAdmin) return;
+
+    const name = accountForm.name.trim();
+    if (!name || !accountForm.pin) {
+      return alert('닉네임과 비밀번호를 입력하세요.');
+    }
+    if (name === 'root' && (!accountForm.isAdmin || editingAccountName !== 'root')) {
+      return alert('root 계정은 관리자 권한과 닉네임을 변경할 수 없습니다.');
+    }
+    if (users.some(user => user.name === name && user.name !== editingAccountName)) {
+      return alert('이미 사용 중인 닉네임입니다.');
+    }
+
+    const account = {
+      name,
+      pin: accountForm.pin,
+      isAdmin: Boolean(accountForm.isAdmin),
+      mainPosition: accountForm.mainPosition,
+      subPosition: accountForm.subPosition,
+      wins: Number(accountForm.wins) || 0,
+      losses: Number(accountForm.losses) || 0,
+      points: Number(accountForm.points) || 0
+    };
+
+    if (!editingAccountName) {
+      setUsers(prevUsers => [...prevUsers, account]);
+      closeAccountForm();
+      return;
+    }
+
+    setUsers(prevUsers => prevUsers.map(user => user.name === editingAccountName ? account : user));
+    if (editingAccountName === currentUser.name || name === currentUser.name) {
+      setCurrentUser(account);
+    }
+
+    if (editingAccountName !== name) {
+      setRooms(prevRooms => prevRooms.map(room => ({
+        ...room,
+        host: room.host === editingAccountName ? name : room.host,
+        participants: room.participants.map(participant => participant === editingAccountName ? name : participant),
+        teams: room.teams.map(team => team.map(participant => participant === editingAccountName ? name : participant)),
+        matches: room.matches.map(match => ({
+          ...match,
+          teamA: match.teamA.map(participant => participant === editingAccountName ? name : participant),
+          teamB: match.teamB.map(participant => participant === editingAccountName ? name : participant)
+        }))
+      })));
+    }
+    closeAccountForm();
+  };
+
+  const deleteAccount = (userName) => {
+    if (!currentUser?.isAdmin || userName === 'root') return;
+    if (!window.confirm(`${userName} 계정을 삭제하시겠습니까?`)) return;
+
+    setUsers(prevUsers => prevUsers.filter(user => user.name !== userName));
+    setRooms(prevRooms => prevRooms.map(room => ({
+      ...room,
+      host: room.host === userName ? '' : room.host,
+      participants: room.participants.filter(participant => participant !== userName),
+      teams: room.teams.map(team => team.filter(participant => participant !== userName)),
+      matches: room.matches.map(match => ({
+        ...match,
+        teamA: match.teamA.filter(participant => participant !== userName),
+        teamB: match.teamB.filter(participant => participant !== userName)
+      }))
+    })));
   };
 
   const createRoom = () => {
@@ -287,14 +436,14 @@ export default function App() {
                 />
               </div>
               <div>
-                <label className="block text-gray-400 mb-2">비밀번호 (PIN)</label>
+                  <label className="block text-gray-400 mb-2">비밀번호</label>
                 <input
                   type="password"
                   value={loginPin}
                   onChange={(e) => setLoginPin(e.target.value)}
-                  maxLength={4}
+                  maxLength={32}
                   className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="4자리 숫자"
+                  placeholder="비밀번호를 입력하세요."
                   required
                 />
               </div>
@@ -322,14 +471,14 @@ export default function App() {
                 />
               </div>
               <div>
-                <label className="block text-gray-400 mb-2">비밀번호 (PIN)</label>
+                <label className="block text-gray-400 mb-2">비밀번호</label>
                 <input
                   type="password"
                   value={signupPin}
                   onChange={(e) => setSignupPin(e.target.value)}
-                  maxLength={4}
+                  maxLength={32}
                   className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="4자리 숫자"
+                  placeholder="비밀번호를 입력하세요."
                   required
                 />
               </div>
@@ -339,7 +488,7 @@ export default function App() {
                   type="password"
                   value={signupPinConfirm}
                   onChange={(e) => setSignupPinConfirm(e.target.value)}
-                  maxLength={4}
+                  maxLength={32}
                   className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="비밀번호를 다시 입력하세요."
                   required
@@ -425,6 +574,14 @@ export default function App() {
                 >
                   <User size={18} /><span>내 프로필</span>
                 </button>
+                {currentUser.isAdmin && (
+                  <button
+                    onClick={() => setActiveTab('accounts')}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'accounts' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                  >
+                    <Users size={18} /><span>계정 관리</span>
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -438,6 +595,114 @@ export default function App() {
       </nav>
 
       <main className="max-w-6xl mx-auto p-4 py-8">
+        {activeTab === 'accounts' && currentUser.isAdmin && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold">계정 관리</h2>
+                <p className="text-sm text-gray-400 mt-1">전체 {users.length}개 계정을 관리합니다.</p>
+              </div>
+              <button onClick={() => openAccountForm()} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg font-bold transition-colors flex items-center space-x-2">
+                <UserPlus size={18} /><span>계정 추가</span>
+              </button>
+            </div>
+
+            {isAccountFormOpen && (
+              <form onSubmit={saveAccount} className="bg-gray-800 p-6 rounded-xl border border-gray-700 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-bold">{editingAccountName ? '계정 정보 수정' : '새 계정 추가'}</h3>
+                  <button type="button" onClick={closeAccountForm} className="text-gray-400 hover:text-white">닫기</button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">닉네임</label>
+                    <input
+                      type="text"
+                      value={accountForm.name}
+                      onChange={(e) => handleAccountFormChange('name', e.target.value)}
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">비밀번호</label>
+                    <input
+                      type="text"
+                      value={accountForm.pin}
+                      onChange={(e) => handleAccountFormChange('pin', e.target.value)}
+                      className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">주 포지션</label>
+                    <select value={accountForm.mainPosition} onChange={(e) => handleAccountFormChange('mainPosition', e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg">
+                      {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">부 포지션</label>
+                    <select value={accountForm.subPosition} onChange={(e) => handleAccountFormChange('subPosition', e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg">
+                      {POSITIONS.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">승리</label>
+                    <input type="number" min="0" value={accountForm.wins} onChange={(e) => handleAccountFormChange('wins', e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">패배</label>
+                    <input type="number" min="0" value={accountForm.losses} onChange={(e) => handleAccountFormChange('losses', e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">승점</label>
+                    <input type="number" value={accountForm.points} onChange={(e) => handleAccountFormChange('points', e.target.value)} className="w-full bg-gray-700 text-white px-3 py-2 rounded-lg" />
+                  </div>
+                  <label className="flex items-center space-x-2 text-sm text-gray-300 mt-6">
+                    <input type="checkbox" checked={accountForm.isAdmin} onChange={(e) => handleAccountFormChange('isAdmin', e.target.checked)} />
+                    <span>관리자 권한</span>
+                  </label>
+                </div>
+                <button type="submit" className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-bold">저장</button>
+              </form>
+            )}
+
+            <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-x-auto">
+              <table className="w-full text-left min-w-[760px]">
+                <thead className="bg-gray-750 text-gray-400 border-b border-gray-700">
+                  <tr>
+                    <th className="p-4">닉네임</th>
+                    <th className="p-4">권한</th>
+                    <th className="p-4">포지션</th>
+                    <th className="p-4">전적</th>
+                    <th className="p-4">승점</th>
+                    <th className="p-4 text-right">관리</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {users.map(user => (
+                    <tr key={user.name} className="hover:bg-gray-750">
+                      <td className="p-4 font-bold">{user.name}</td>
+                      <td className="p-4 text-sm">{user.isAdmin ? <span className="text-yellow-400">관리자</span> : '일반 사용자'}</td>
+                      <td className="p-4 text-sm text-indigo-300">{user.mainPosition || '-'}/{user.subPosition || '-'}</td>
+                      <td className="p-4 text-gray-400">{user.wins}승 {user.losses}패</td>
+                      <td className="p-4 text-yellow-400 font-bold">{user.points}점</td>
+                      <td className="p-4 text-right space-x-2">
+                        <button onClick={() => openAccountForm(user)} className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">수정</button>
+                        {user.name !== 'root' && (
+                          <button onClick={() => deleteAccount(user.name)} className="text-sm bg-red-700 hover:bg-red-600 px-3 py-1 rounded transition-colors inline-flex items-center space-x-1">
+                            <Trash2 size={14} /><span>삭제</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'profile' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold">내 프로필</h2>
@@ -730,7 +995,7 @@ export default function App() {
                       <td className="p-4 text-yellow-400 font-bold">{user.points}점</td>
                       <td className="p-4 text-gray-400">{user.wins}승 {user.losses}패</td>
                       <td className="p-4 text-right">
-                        {user.name !== currentUser.name && (
+                        {currentUser.isAdmin && user.name !== currentUser.name && (
                           <button onClick={() => resetPin(user.name)} className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors">
                             초기화
                           </button>
