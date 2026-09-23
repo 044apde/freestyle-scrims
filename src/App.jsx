@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Trophy, History, Users, LogOut, User, Edit2, Check, LayoutDashboard, UserPlus, Trash2 } from 'lucide-react';
+import positionBanner from './assets/position-banner.png';
 
 const POSITIONS = ['C', 'PF', 'SF', 'SG', 'PG'];
 const INVITATION_CODE = '다시만난세계';
@@ -432,6 +433,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+          <img src={positionBanner} alt="프리스타일 포지션 배너" className="w-full rounded-lg object-cover mb-6" />
           <h1 className="text-3xl font-bold text-white text-center mb-8">프리스타일 리부트 내전</h1>
           {authMode === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
@@ -554,50 +556,50 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
+    <div className="min-h-screen overflow-x-hidden bg-gray-900 text-gray-100">
       <nav className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-8">
-              <span className="text-xl font-bold text-white">FS Reboot</span>
-              <div className="flex space-x-4">
+        <div className="mx-auto max-w-6xl overflow-hidden px-4">
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2">
+            <span className="shrink-0 text-xl font-bold text-white">FS Reboot</span>
+            <div className="flex min-w-0 flex-1 items-center justify-end gap-2 max-md:order-3 max-md:basis-full">
+              <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
                 <button
                   onClick={() => setActiveTab('main')}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'main' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap rounded-md px-3 py-2 ${activeTab === 'main' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
                 >
                   <LayoutDashboard size={18} /><span>내전 대시보드</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('history')}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'history' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap rounded-md px-3 py-2 ${activeTab === 'history' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
                 >
                   <History size={18} /><span>전체 매치 기록</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('ranking')}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'ranking' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap rounded-md px-3 py-2 ${activeTab === 'ranking' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
                 >
                   <Trophy size={18} /><span>종합 랭킹</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('profile')}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'profile' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap rounded-md px-3 py-2 ${activeTab === 'profile' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
                 >
                   <User size={18} /><span>내 프로필</span>
                 </button>
                 {currentUser.isAdmin && (
                   <button
                     onClick={() => setActiveTab('accounts')}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-md ${activeTab === 'accounts' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700'}`}
+                    className={`flex shrink-0 items-center space-x-2 whitespace-nowrap rounded-md px-3 py-2 ${activeTab === 'accounts' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}`}
                   >
                     <Users size={18} /><span>계정 관리</span>
                   </button>
                 )}
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex shrink-0 items-center space-x-3">
               <span className="text-gray-300"><span className="font-bold text-indigo-400">{currentUser.name}</span>님</span>
-              <button onClick={handleLogout} className="text-gray-400 hover:text-white flex items-center space-x-1">
+              <button onClick={handleLogout} className="flex shrink-0 items-center space-x-1 whitespace-nowrap text-gray-400 hover:text-white">
                 <LogOut size={18} /><span>로그아웃</span>
               </button>
             </div>
@@ -605,7 +607,7 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto p-4 py-8">
+      <main className="mx-auto min-w-0 max-w-6xl p-4 py-8">
         {activeTab === 'accounts' && currentUser.isAdmin && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
