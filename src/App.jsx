@@ -101,12 +101,18 @@ export default function App() {
       losses: 0,
       points: 0
     };
-    await setDoc(doc(db, 'users', signupName), newUser);
-    setCurrentUser(newUser);
-    setSignupName('');
-    setSignupPin('');
-    setSignupPinConfirm('');
-    setInvitationCode('');
+    try {
+      await setDoc(doc(db, 'users', signupName), newUser);
+      setUsers(prevUsers => [...prevUsers, newUser]);
+      setCurrentUser(newUser);
+      setSignupName('');
+      setSignupPin('');
+      setSignupPinConfirm('');
+      setInvitationCode('');
+    } catch (error) {
+      console.error('회원가입 저장 실패:', error);
+      alert('회원가입에 실패했습니다. 잠시 후 다시 시도하세요.');
+    }
   };
 
   const handleLogout = () => {
