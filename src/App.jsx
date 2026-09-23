@@ -45,7 +45,7 @@ export default function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (!loginName || !loginPin) return alert('닉네임과 비밀번호를 입력하라.');
+    if (!loginName || !loginPin) return alert('닉네임과 비밀번호를 입력하세요.');
 
     const existingUser = users.find(u => u.name === loginName);
     if (existingUser) {
@@ -53,7 +53,7 @@ export default function App() {
         setCurrentUser(existingUser);
         setLoginPin('');
       } else {
-        alert('비밀번호가 틀렸다.');
+        alert('비밀번호가 틀렸습니다.');
       }
     } else {
       const newUser = {
@@ -79,7 +79,7 @@ export default function App() {
   const resetPin = (userName) => {
     const updatedUsers = users.map(u => u.name === userName ? { ...u, pin: '0000' } : u);
     setUsers(updatedUsers);
-    alert(`${userName}의 비밀번호가 '0000'으로 초기화되었다.`);
+    alert(`${userName}의 비밀번호가 '0000'으로 초기화되었습니다.`);
   };
 
   const createRoom = () => {
@@ -253,7 +253,7 @@ export default function App() {
                 value={loginName}
                 onChange={(e) => setLoginName(e.target.value)}
                 className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="닉네임을 입력하라"
+                placeholder="닉네임을 입력하세요."
                 required
               />
             </div>
@@ -294,7 +294,7 @@ export default function App() {
             <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
               입장하기
             </button>
-            <p className="text-gray-500 text-sm text-center mt-4">최초 입장 시 입력한 비밀번호로 계정이 등록된다.</p>
+            <p className="text-gray-500 text-sm text-center mt-4">최초 입장 시 입력한 비밀번호로 계정이 등록됩니다.</p>
           </form>
         </div>
       </div>
@@ -433,7 +433,7 @@ export default function App() {
                     </h3>
                     <div className="space-y-3">
                       {myMatchHistory.length === 0 ? (
-                        <div className="text-center py-10 text-gray-500">참여한 매치 기록이 없다.</div>
+                        <div className="text-center py-10 text-gray-500">참여한 매치 기록이 없습니다.</div>
                       ) : (
                         myMatchHistory.map((match, idx) => (
                           <div key={idx} className="bg-gray-700 rounded-lg p-4 flex items-center justify-between border-l-4 border-transparent" style={{ borderLeftColor: match.isWin ? '#10B981' : '#EF4444' }}>
@@ -472,7 +472,7 @@ export default function App() {
             
             <div className="grid gap-6">
               {rooms.length === 0 ? (
-                <div className="text-center py-20 text-gray-500 bg-gray-800 rounded-xl border border-gray-700">진행 중인 내전이 없다.</div>
+                <div className="text-center py-20 text-gray-500 bg-gray-800 rounded-xl border border-gray-700">진행 중인 내전이 없습니다.</div>
               ) : (
                 rooms.map(room => (
                   <div key={room.id} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
