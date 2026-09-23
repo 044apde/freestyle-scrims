@@ -613,7 +613,7 @@ export default function App() {
             <div className="flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold">계정 관리</h2>
-                <p className="text-sm text-gray-400 mt-1">전체 {users.length}개 계정을 관리합니다.</p>
+                <p className="text-sm text-gray-400 mt-1">전체 {users.filter(user => user.name !== 'root').length}개 계정을 관리합니다.</p>
               </div>
               <button onClick={() => openAccountForm()} className="bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg font-bold transition-colors flex items-center space-x-2">
                 <UserPlus size={18} /><span>계정 추가</span>
@@ -696,7 +696,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                  {users.map(user => (
+                  {users.filter(user => user.name !== 'root').map(user => (
                     <tr key={user.name} className="hover:bg-gray-750">
                       <td className="p-4 font-bold">{user.name}</td>
                       <td className="p-4 text-sm">{user.isAdmin ? <span className="text-yellow-400">관리자</span> : '일반 사용자'}</td>
@@ -1002,7 +1002,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700">
-                  {[...users].sort((a, b) => b.points - a.points).map((user, idx) => (
+                  {users.filter(user => user.name !== 'root').sort((a, b) => b.points - a.points).map((user, idx) => (
                     <tr key={user.name} className="hover:bg-gray-750">
                       <td className="p-4 font-bold text-gray-400">{idx + 1}</td>
                       <td className="p-4 font-bold">{user.name}</td>
